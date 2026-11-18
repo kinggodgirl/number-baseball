@@ -558,32 +558,58 @@ function makeCandTable(box, lv){
 let QZ=null;
 function onQuiz(d){
   if(d.t==='quiz'){
-    if(!QZ || QZ.id!==d.id) QZ={id:String(d.id).slice(0,20), q:String(d.q||'').slice(0,200), my:null, revealed:false};
+    if(!QZ || QZ.id!==d.id) QZ={id:String(d.id).slice(0,20), q:String(d.q||'').slice(0,200), my:null, revealed:false, sit:cleanSit(d.sit)};
     renderQuiz(); $('quizOv').classList.add('on');
   } else if(d.t==='quizReveal' && QZ && QZ.id===d.id){
-    QZ.revealed=true; QZ.ans=d.ans; QZ.exp=String(d.exp||'').slice(0,120); renderQuiz(); $('quizOv').classList.add('on');
+    QZ.revealed=true; QZ.ans=String(d.ans??'').slice(0,8); QZ.exp=String(d.exp||'').slice(0,120);
+    QZ.cands=Array.isArray(d.cands)?d.cands.slice(0,40).map(x=>String(x).replace(/\D/g,'').slice(0,3)):null;
+    renderQuiz(); $('quizOv').classList.add('on');
   } else if(d.t==='quizClose'){ QZ=null; $('quizOv').classList.remove('on'); }
+}
+/* 교사가 보낸 게임 상황을 검사해서 안전한 값만 남김 */
+function cleanSit(st){
+  if(!st||typeof st!=='object'||!LEVELS[st.lv]||!Array.isArray(st.rows)) return null;
+  const lv=LEVELS[st.lv], rows=[];
+  for(const r of st.rows.slice(0,6)){
+    if(!r||!Array.isArray(r.g)||r.g.length!==lv.len) return null;
+    const g=r.g.map(x=>x|0); let h;
+    if(lv.mode==='sb'){ if(!r.h||typeof r.h!=='object') return null; h={s:Math.max(0,Math.min(lv.len,r.h.s|0)),b:Math.max(0,Math.min(lv.len,r.h.b|0))}; }
+    else { if(!Array.isArray(r.h)||r.h.length!==lv.len||r.h.some(x=>!['O','A','X'].includes(x))) return null; h=r.h.slice(); }
+    rows.push({g,h});
+  }
+  return {lv:lv.key, kind: st.kind==='secret'?'secret':'count', rows};
+}
+function sitBlock(st){
+  const lv=LEVELS[st.lv];
+  return `<div style="background:#0b1f14;border-radius:12px;padding:12px;margin:8px 0 4px;text-align:left">
+    <p class="muted" style="margin-bottom:8px">⚾ 게임 중 상황 · 규칙: ${lv.min}~${lv.max} 중 서로 다른 숫자 ${lv.len}개${lv.mode==='sb'?' · S/B':''}</p>
+    ${st.rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:10px;margin:6px 0"><span class="n" style="width:36px;opacity:.75;font-size:14px">${i+1}회</span>${tilesHTML(r.g,r.h,lv)}</div>`).join('')}
+  </div>`;
 }
 function renderQuiz(){
   const c=$('quizCard');
+  const st=QZ.sit, isSecret = st && st.kind==='secret', maxLen = isSecret ? LEVELS[st.lv].len : 5;
   if(!QZ.revealed){
-    c.innerHTML=`<div style="font-size:48px">🤔</div><h2>예측해 보세요!</h2><p class="quiz-q">${esc(QZ.q)}</p>
-      <input type="text" id="quizIn" class="code" inputmode="numeric" maxlength="5" placeholder="?" value="${QZ.my??''}" style="font-size:44px;letter-spacing:6px">
+    c.innerHTML=`${st?'':'<div style="font-size:48px">🤔</div>'}<h2>${st?'상황 퀴즈!':'예측해 보세요!'}</h2>${st?sitBlock(st):''}<p class="quiz-q">${esc(QZ.q)}</p>
+      <input type="text" id="quizIn" class="code" inputmode="numeric" maxlength="${maxLen}" placeholder="${isSecret?'?'.repeat(maxLen):'?'}" value="${QZ.my??''}" style="font-size:44px;letter-spacing:6px">
       <button class="btn-y btn-full" onclick="submitQuiz()">${QZ.my!=null?'답 고치기':'제출하기'}</button>
       <p class="muted" style="margin-top:10px;min-height:22px" id="quizMsg">${QZ.my!=null?`✔ ${QZ.my}(이)라고 제출했어요. 선생님이 정답을 공개할 때까지 고칠 수 있어요.`:''}</p>`;
-    const inp=$('quizIn'); inp.addEventListener('input',()=>inp.value=inp.value.replace(/\D/g,'').slice(0,5)); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submitQuiz(); });
+    const inp=$('quizIn'); inp.addEventListener('input',()=>inp.value=inp.value.replace(/\D/g,'').slice(0,maxLen)); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submitQuiz(); });
   } else {
-    const ok = QZ.my!=null && +QZ.my===+QZ.ans;
-    c.innerHTML=`<div style="font-size:48px">${ok?'🎉':'💡'}</div><p class="quiz-q" style="margin-bottom:6px">${esc(QZ.q)}</p>
+    const ok = QZ.my!=null && (isSecret ? String(QZ.my)===QZ.ans : +QZ.my===+QZ.ans);
+    c.innerHTML=`<div style="font-size:48px">${ok?'🎉':'💡'}</div>${st?sitBlock(st):''}<p class="quiz-q" style="margin-bottom:6px">${esc(QZ.q)}</p>
       <p class="muted">정답</p><div class="quiz-ans">${esc(QZ.ans)}</div>
-      ${QZ.exp?`<p style="font-size:20px;margin-top:10px">${esc(QZ.exp)}</p>`:''}
+      ${QZ.exp?`<p style="font-size:${st?17:20}px;margin-top:10px">${esc(QZ.exp)}</p>`:''}
+      ${QZ.cands&&st?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px">${QZ.cands.map(x=>`<span class="tiles sm"><span class="tile O" style="width:auto;padding:0 8px">${esc(x)}</span></span>`).join('')}</div>`:''}
       <p style="margin-top:12px">${QZ.my!=null?`내 답: <b>${esc(QZ.my)}</b> ${ok?'— 정답!':''}`:'답을 내지 않았어요'}</p>
       <button class="btn-ghost btn-full" onclick="$('quizOv').classList.remove('on')">닫기</button>`;
   }
 }
 function submitQuiz(){
   const v=$('quizIn').value.trim(); if(!v){ $('quizMsg').textContent='숫자를 입력하세요'; return; }
-  QZ.my=+v; classSend({t:'quizAns', id:QZ.id, v:QZ.my, name:myName(), dev:deviceId}); renderQuiz();
+  const st=QZ.sit, isSecret=st&&st.kind==='secret';
+  if(isSecret && v.length!==LEVELS[st.lv].len){ $('quizMsg').textContent=`${LEVELS[st.lv].len}자리 숫자로 입력하세요`; return; }
+  QZ.my= isSecret ? v : String(+v); classSend({t:'quizAns', id:QZ.id, v:QZ.my, name:myName(), dev:deviceId}); renderQuiz();
 }
 
 /* ---------- 화면 전환 ---------- */

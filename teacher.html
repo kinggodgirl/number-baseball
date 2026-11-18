@@ -62,6 +62,25 @@ button:disabled{opacity:.35;cursor:default}
 .dist .dc{font-size:14px;opacity:.85}
 .dist .names{grid-column:2/4;font-size:12px;opacity:.6;margin-top:-2px}
 @media (max-width:860px){.qz{grid-template-columns:1fr}}
+.srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.srow .sn{font-size:13px;opacity:.7;width:30px}
+.srow input.sg{width:90px;font-family:"Black Han Sans";font-size:24px;letter-spacing:4px;text-align:center;padding:6px}
+.srow input.sg.bad{border-color:var(--red)}
+.srow select{width:auto;margin:0;padding:6px 8px}
+.srow .del{background:transparent;color:var(--chalk);opacity:.6;padding:4px 8px}
+.tiles{display:inline-flex;gap:4px}
+.tile{position:relative;width:36px;height:42px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-family:"Black Han Sans";font-size:24px;background:#0b1f14;border:2px solid var(--line);color:var(--chalk);padding:0}
+.tile.O{background:var(--yellow);border-color:var(--yellow);color:var(--board)}
+.tile.A{background:var(--blue);border-color:var(--blue);color:#fff}
+.tile.X{background:#26332c;border-color:#26332c;color:#6f7f76}
+button.tile{cursor:pointer}
+.chip{font-family:"Black Han Sans";font-size:18px;border-radius:8px;padding:2px 8px}
+.chip.s{background:var(--yellow);color:var(--board)}.chip.b{background:var(--blue);color:#fff}.chip.out{background:#ff8c6b;color:var(--board)}
+.sprev{margin-top:10px;background:#0b1f14;border-radius:10px;padding:10px 12px;font-size:15px;line-height:1.6}
+.sprev b{color:var(--yellow);font-family:"Black Han Sans";font-size:22px;font-weight:400}
+.cands{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.cands span{font-family:"Black Han Sans";font-size:17px;background:#1c3326;border-radius:6px;padding:1px 7px}
+.warn{color:#ffb4a2}
 .seg{display:inline-flex;background:#0b1f14;border:2px solid var(--line);border-radius:12px;padding:3px;gap:3px}
 .seg button{background:transparent;color:var(--chalk);padding:6px 14px;font-size:15px;border-radius:9px}
 .seg button.sel{background:var(--yellow);color:var(--board)}
@@ -119,11 +138,26 @@ button:disabled{opacity:.35;cursor:default}
     </div>
     <div class="qz">
       <div>
+        <div class="seg" id="qzMode" style="margin-bottom:10px"><button class="sel" data-m="basic">기본 문제</button><button data-m="sit">⚾ 게임 상황 문제</button></div>
+        <div id="qzBasic">
         <label class="muted" for="qzSel">예측 퀴즈 문제</label>
         <select id="qzSel"></select>
         <div id="qzCustom" style="display:none;margin-top:8px">
           <input type="text" id="qzQ" maxlength="200" placeholder="문제를 입력하세요">
           <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="qzA" maxlength="6" placeholder="정답 (숫자)" style="max-width:150px"><input type="text" id="qzE" maxlength="120" placeholder="풀이 한 줄 (선택)"></div>
+        </div>
+        </div>
+        <div id="qzSit" style="display:none">
+          <div class="row" style="flex-wrap:nowrap">
+            <div style="flex:1"><label class="muted" for="sLv">단계</label><select id="sLv"></select></div>
+            <div style="flex:1.3"><label class="muted" for="sKind">물어볼 것</label><select id="sKind"><option value="count">가능한 비밀 숫자는 몇 가지?</option><option value="secret">비밀 숫자는 무엇일까?</option></select></div>
+          </div>
+          <div id="sRows" style="margin-top:10px"></div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn-ghost" onclick="sitAddRow()">＋ 추측 줄 추가</button>
+            <button class="btn-ghost" onclick="sitRandom()">🎲 무작위 상황 만들기</button>
+          </div>
+          <div id="sPrev" class="sprev"></div>
         </div>
         <div class="row" style="margin-top:10px">
           <button class="btn-y" id="qzStart" onclick="startQuiz()">퀴즈 내기</button>
@@ -133,7 +167,7 @@ button:disabled{opacity:.35;cursor:default}
         <p class="muted" id="qzState" style="margin-top:8px">학생 화면에 문제가 뜨고, 답을 입력하면 오른쪽에 모여요.</p>
       </div>
       <div>
-        <div class="row" style="justify-content:space-between"><b>학생 답 분포</b><span class="row" style="gap:8px"><label class="muted" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="qzHide" onchange="renderQuiz()"> 이름 숨기기 (화면 띄울 때)</label><span class="badge" id="qzCount">0명 응답</span></span></div>
+        <div class="row" style="justify-content:space-between"><b>학생 답 분포</b><span class="row" style="gap:8px"><label class="muted" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="qzHide" onchange="renderQuiz();renderSitPrev()"> 📺 화면 띄우기 모드 (이름·정답 숨김)</label><span class="badge" id="qzCount">0명 응답</span></span></div>
         <div id="qzDist" class="dist"><p class="empty">퀴즈를 내면 여기에 답이 모여요</p></div>
       </div>
     </div>
@@ -187,7 +221,76 @@ let records=LS.get('nb-t-records',[]);   // {gid,time,a,b,winner,rounds,level}
 let paused=false;
 let offlineAllowed=false;
 let showCount=false;
-let quiz=null; // {id,q,ans,exp,revealed,answers:Map}
+let quiz=null; // {id,q,ans(문자열),exp,revealed,answers:Map,sit,cands}
+let qzMode='basic';
+/* ---- 게임 상황 문제: 학생 페이지와 같은 판정 규칙 ---- */
+const LEVELS={
+  easy:{key:'easy',name:'하',len:2,min:1,max:6,mode:'oxa'},
+  mid:{key:'mid',name:'중',len:3,min:1,max:9,mode:'oxa'},
+  mh:{key:'mh',name:'중상',len:3,min:1,max:6,mode:'sb'},
+  hard:{key:'hard',name:'상',len:3,min:0,max:9,mode:'sb'}};
+function digitsOf(lv){const a=[];for(let d=lv.min;d<=lv.max;d++)a.push(d);return a;}
+function judge(sec,g,lv){ const r=g.map((x,i)=>x===sec[i]?'O':(sec.includes(x)?'A':'X')); return lv.mode==='sb'?{s:r.filter(x=>x==='O').length,b:r.filter(x=>x==='A').length}:r; }
+const CC={}; function allCands(lv){ if(CC[lv.key]) return CC[lv.key]; const ds=digitsOf(lv),out=[]; (function rec(c){ if(c.length===lv.len){out.push(c.slice());return;} for(const d of ds) if(!c.includes(d)){c.push(d);rec(c);c.pop();} })([]); return CC[lv.key]=out; }
+const hk=h=>Array.isArray(h)?h.join(''):(h.s+'S'+h.b+'B');
+function remainOf(lv,rows){ let c=allCands(lv); for(const r of rows){ const k=hk(r.h); c=c.filter(x=>hk(judge(x,r.g,lv))===k); } return c; }
+const SYM={O:'○',A:'△',X:'×'};
+let sit={lv:'easy',kind:'count',rows:[{g:'',h:null}]};
+function blankHint(lv){ return lv.mode==='sb'?{s:0,b:0}:Array(lv.len).fill('X'); }
+function parseG(str,lv){ const d=String(str).replace(/\D/g,'').split('').map(Number); if(d.length!==lv.len) return null; if(new Set(d).size!==d.length) return null; if(d.some(x=>x<lv.min||x>lv.max)) return null; return d; }
+function sitRows(){ const lv=LEVELS[sit.lv]; return sit.rows.map(r=>({g:parseG(r.g,lv),h:r.h})).filter(r=>r.g); }
+function renderSit(){
+  const lv=LEVELS[sit.lv];
+  $('sRows').innerHTML=sit.rows.map((r,i)=>{
+    if(!r.h) r.h=blankHint(lv);
+    const g=parseG(r.g,lv), digs=String(r.g).replace(/\D/g,'').split('');
+    let hint;
+    if(lv.mode==='sb') hint=`<select onchange="sit.rows[${i}].h.s=+this.value;renderSitPrev()">${[...Array(lv.len+1).keys()].map(n=>`<option ${r.h.s===n?'selected':''}>${n}</option>`).join('')}</select> S
+      <select onchange="sit.rows[${i}].h.b=+this.value;renderSitPrev()">${[...Array(lv.len+1).keys()].map(n=>`<option ${r.h.b===n?'selected':''}>${n}</option>`).join('')}</select> B`;
+    else hint=`<span class="tiles">${r.h.map((x,j)=>`<button class="tile ${x}" title="누를 때마다 회색→노랑→파랑" onclick="sitCycle(${i},${j})">${digs[j]??'·'}</button>`).join('')}</span>`;
+    return `<div class="srow"><span class="sn">${i+1}회</span><input type="text" class="sg ${r.g&&!g?'bad':''}" maxlength="${lv.len}" inputmode="numeric" placeholder="${'0'.repeat(lv.len).replace(/0/g,'□')}" value="${esc(r.g)}" oninput="sit.rows[${i}].g=this.value.replace(/\D/g,'');this.value=sit.rows[${i}].g;renderSitSoft(${i},this)"><span>→</span>${hint}${sit.rows.length>1?`<button class="del" onclick="sit.rows.splice(${i},1);renderSit()">✕</button>`:''}</div>`;
+  }).join('');
+  renderSitPrev();
+}
+function renderSitSoft(i,inp){ // 입력 중에는 포커스를 잃지 않도록 칸 숫자만 갱신
+  const lv=LEVELS[sit.lv]; const ok=parseG(sit.rows[i].g,lv); inp.classList.toggle('bad', !!sit.rows[i].g && !ok);
+  const digs=sit.rows[i].g.split(''); const row=inp.parentElement; row.querySelectorAll('.tile').forEach((t,j)=>t.textContent=digs[j]??'·');
+  renderSitPrev();
+}
+function sitCycle(i,j){ const o=['X','O','A']; const h=sit.rows[i].h; h[j]=o[(o.indexOf(h[j])+1)%3]; renderSit(); }
+function sitAddRow(){ if(sit.rows.length>=6) return; sit.rows.push({g:'',h:blankHint(LEVELS[sit.lv])}); renderSit(); }
+function renderSitPrev(){
+  const lv=LEVELS[sit.lv], rows=sitRows(), bad=sit.rows.length-rows.length;
+  if(!rows.length){ $('sPrev').innerHTML=`<span class="muted">추측 숫자(${lv.min}~${lv.max}, 서로 다른 ${lv.len}개)를 넣고 결과를 정하세요.</span>`; return; }
+  const rem=remainOf(lv,rows), hide=$('qzHide').checked;
+  let h= hide ? (rem.length? '✔ 낼 수 있는 상황이에요 <span class="muted">(화면 띄우기 모드라 정답은 가려 두었어요)</span>' : '')
+              : `이 상황에서 가능한 비밀 숫자: <b>${rem.length}</b>가지 <span class="muted">(처음 ${allCands(lv).length}가지)</span>`;
+  if(bad) h+=`<br><span class="warn">⚠ 숫자가 잘못된 줄 ${bad}개는 빼고 계산했어요.</span>`;
+  if(rem.length===0) h+=`<br><span class="warn">⚠ 이런 결과는 나올 수 없어요. 결과를 다시 확인하세요.</span>`;
+  else if(rem.length<=40 && !hide) h+=`<div class="cands">${rem.map(c=>`<span>${c.join('')}</span>`).join('')}</div>`;
+  if(sit.kind==='secret' && rem.length!==1) h+=`<br><span class="warn">⚠ “비밀 숫자는?” 문제는 가능한 숫자가 1가지일 때만 낼 수 있어요.</span>`;
+  $('sPrev').innerHTML=h;
+}
+/* 무작위 상황: 실제 비밀 숫자를 하나 정해 진짜 결과로 만들기 */
+function sitRandom(){
+  const lv=LEVELS[sit.lv], all=allCands(lv), pick=a=>a[Math.floor(Math.random()*a.length)];
+  // 개수 문제는 직접 세어 볼 만한 3~8가지(2자리) / 4~15가지(3자리)로
+  const lo = sit.kind==='secret'?1:(lv.len===2?3:4), hi = sit.kind==='secret'?1:(lv.len===2?8:15);
+  for(let t=0;t<500;t++){
+    const sec=pick(all), n = 1+Math.floor(Math.random()*(lv.len===2?2:3)) + (sit.kind==='secret'?1:0);
+    const rows=[]; let rem=all;
+    for(let k=0;k<n;k++){ let g; do{ g=pick(rem.length>1?rem:all); }while(g.join('')===sec.join('')); const h=judge(sec,g,lv); rows.push({g,h}); rem=remainOf(lv,rows); }
+    if(rem.length>=lo && rem.length<=hi){ sit.rows=rows.map(r=>({g:r.g.join(''),h:Array.isArray(r.h)?r.h.slice():{...r.h}})); renderSit(); return; }
+  }
+  $('sPrev').innerHTML='<span class="warn">알맞은 상황을 못 찾았어요. 한 번 더 눌러 주세요.</span>';
+}
+function initSit(){
+  $('sLv').innerHTML=Object.values(LEVELS).map(l=>`<option value="${l.key}">${l.name} (${l.min}~${l.max}, ${l.len}자리${l.mode==='sb'?', S/B':''})</option>`).join('');
+  $('sLv').onchange=()=>{ sit.lv=$('sLv').value; sit.rows=[{g:'',h:blankHint(LEVELS[sit.lv])}]; renderSit(); };
+  $('sKind').onchange=()=>{ sit.kind=$('sKind').value; renderSitPrev(); };
+  document.querySelectorAll('#qzMode button').forEach(b=>b.onclick=()=>{ qzMode=b.dataset.m; document.querySelectorAll('#qzMode button').forEach(x=>x.classList.toggle('sel',x===b)); $('qzBasic').style.display=qzMode==='basic'?'':'none'; $('qzSit').style.display=qzMode==='sit'?'':'none'; });
+  renderSit();
+}
 const QUIZ_PRESETS=[
   {q:'1부터 6까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 두 자리 수는 모두 몇 개일까요?', ans:30, exp:'십의 자리 6가지 × 일의 자리 5가지 = 30', tag:'하 (1~6, 2자리)'},
   {q:'1부터 6까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 세 자리 수는 모두 몇 개일까요?', ans:120, exp:'6 × 5 × 4 = 120', tag:'중상 (1~6, 3자리)'},
@@ -221,7 +324,7 @@ function openPeer(attempt=0){
       c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
       c.send({t:'offline',on:offlineAllowed});
       c.send({t:'count',on:showCount});
-      if(quiz){ c.send({t:'quiz',id:quiz.id,q:quiz.q}); if(quiz.revealed) c.send({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp}); }
+      if(quiz){ c.send({t:'quiz',id:quiz.id,q:quiz.q,sit:quiz.sit}); if(quiz.revealed) c.send({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp,cands:quiz.cands}); }
       renderStudents();
     });
     c.on('data',d=>onData(c,d));
@@ -260,7 +363,8 @@ function onData(c,d){
     addResult(d);
   } else if(d.t==='quizAns'){
     if(quiz && d.id===quiz.id && !quiz.revealed){
-      const v=Math.max(0,Math.min(99999,Math.floor(+d.v)||0));
+      let v=String(d.v??'').replace(/\D/g,'').slice(0,6); if(!v) return;
+      if(!(quiz.sit&&quiz.sit.kind==='secret')) v=String(+v);   // 개수 문제는 앞의 0 무시
       quiz.answers.set(s.dev||c._key,{name:s.name,v}); renderQuiz();
     }
   }
@@ -304,14 +408,28 @@ function initQuizSel(){
   $('qzSel').onchange=()=>{ $('qzCustom').style.display=$('qzSel').value==='custom'?'block':'none'; };
 }
 function startQuiz(){
-  let q,ans,exp;
+  let q,ans,exp,sitMsg=null,cands=null;
+  if(qzMode==='sit'){
+    const lv=LEVELS[sit.lv], rows=sitRows();
+    if(!rows.length||rows.length!==sit.rows.length){ $('qzState').innerHTML='<span class="warn">추측 숫자를 모두 바르게 넣어 주세요.</span>'; return; }
+    const rem=remainOf(lv,rows);
+    if(!rem.length){ $('qzState').innerHTML='<span class="warn">나올 수 없는 상황이에요. 결과를 확인하세요.</span>'; return; }
+    if(sit.kind==='secret'&&rem.length!==1){ $('qzState').innerHTML='<span class="warn">“비밀 숫자는?” 문제는 가능한 숫자가 1가지여야 해요.</span>'; return; }
+    q = sit.kind==='secret' ? '이 상황에서 비밀 숫자는 무엇일까요?' : '이 상황에서 비밀 숫자로 가능한 것은 모두 몇 가지일까요?';
+    ans = sit.kind==='secret' ? rem[0].join('') : String(rem.length);
+    cands = rem.length<=40 ? rem.map(c=>c.join('')) : null;
+    exp = sit.kind==='secret' ? '가능한 숫자가 하나뿐이에요' : (cands ? '가능한 비밀 숫자를 모두 적어 보면 아래와 같아요' : `처음 ${allCands(lv).length}가지에서 ${rem.length}가지로 줄었어요`);
+    sitMsg={lv:lv.key, kind:sit.kind, rows:rows.map(r=>({g:r.g,h:r.h}))};
+    quiz={id:Date.now().toString(36), q, ans, exp, revealed:false, answers:new Map(), sit:sitMsg, cands};
+    bcast({t:'quiz',id:quiz.id,q,sit:sitMsg}); renderQuiz(); return;
+  }
   if($('qzSel').value==='custom'){ q=$('qzQ').value.trim(); ans=$('qzA').value.replace(/\D/g,''); exp=$('qzE').value.trim();
-    if(!q||!ans){ $('qzState').textContent='문제와 정답(숫자)을 입력하세요.'; return; } ans=+ans; }
-  else { const p=QUIZ_PRESETS[+$('qzSel').value]; q=p.q; ans=p.ans; exp=p.exp; }
+    if(!q||!ans){ $('qzState').textContent='문제와 정답(숫자)을 입력하세요.'; return; } ans=String(+ans); }
+  else { const p=QUIZ_PRESETS[+$('qzSel').value]; q=p.q; ans=String(p.ans); exp=p.exp; }
   quiz={id:Date.now().toString(36), q, ans, exp, revealed:false, answers:new Map()};
   bcast({t:'quiz',id:quiz.id,q}); renderQuiz();
 }
-function revealQuiz(){ if(!quiz) return; quiz.revealed=true; bcast({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp}); renderQuiz(); }
+function revealQuiz(){ if(!quiz) return; quiz.revealed=true; bcast({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp,cands:quiz.cands}); renderQuiz(); }
 function closeQuiz(){ bcast({t:'quizClose'}); quiz=null; renderQuiz(); }
 function renderQuiz(){
   $('qzStart').textContent = quiz ? '새 퀴즈 내기' : '퀴즈 내기';
@@ -320,11 +438,16 @@ function renderQuiz(){
   const arr=[...quiz.answers.values()], on=[...students.values()].filter(s=>s.online&&s.dev).length;
   const okN=arr.filter(a=>a.v===quiz.ans).length;
   $('qzCount').textContent=`${arr.length}명 응답 / 접속 ${on}명`;
-  $('qzState').innerHTML = quiz.revealed ? `정답 <b style="color:var(--yellow)">${quiz.ans}</b> 공개함 · 맞힌 학생 ${okN}명 (${arr.length?Math.round(okN/arr.length*100):0}%)${quiz.exp?' · '+esc(quiz.exp):''}` : `진행 중: “${esc(quiz.q.slice(0,40))}${quiz.q.length>40?'…':''}” · 정답은 아직 학생에게 안 보여요`;
+  const sitInfo = quiz.sit ? `<div style="margin:6px 0">${sitHTML(quiz.sit)}</div>` : '';
+  $('qzState').innerHTML = sitInfo + (quiz.revealed ? `정답 <b style="color:var(--yellow)">${quiz.ans}</b> 공개함 · 맞힌 학생 ${okN}명 (${arr.length?Math.round(okN/arr.length*100):0}%)${quiz.exp?' · '+esc(quiz.exp):''}` : `진행 중: “${esc(quiz.q.slice(0,40))}${quiz.q.length>40?'…':''}” ${$('qzHide').checked?'':` · 정답 <b>${esc(quiz.ans)}</b> (학생에게는 아직 안 보여요)`}`);
   const m=new Map(); for(const a of arr){ if(!m.has(a.v)) m.set(a.v,[]); m.get(a.v).push(a.name); }
-  const rows=[...m.entries()].sort((x,y)=> y[1].length-x[1].length || x[0]-y[0]);
+  const rows=[...m.entries()].sort((x,y)=> y[1].length-x[1].length || (+x[0])-(+y[0]));
   const max=Math.max(1,...rows.map(r=>r[1].length));
   $('qzDist').innerHTML = rows.length ? rows.map(([v,names])=>`<div class="dr ${quiz.revealed&&v===quiz.ans?'ok':''}"><div class="dv">${v}</div><div class="db" style="width:${names.length/max*100}%"></div><div class="dc">${names.length}명</div>${$('qzHide').checked?'':`<div class="names">${names.map(esc).join(', ')}</div>`}</div>`).join('') : '<p class="empty">아직 답이 없어요</p>';
+}
+function sitHTML(st){
+  const lv=LEVELS[st.lv];
+  return st.rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span class="muted" style="width:30px">${i+1}회</span><span class="tiles">${r.g.map((d,j)=> lv.mode==='sb'?`<span class="tile">${d}</span>`:`<span class="tile ${r.h[j]}">${d}</span>`).join('')}</span>${lv.mode==='sb'?((r.h.s||r.h.b)?`${r.h.s?`<span class="chip s">${r.h.s}S</span>`:''} ${r.h.b?`<span class="chip b">${r.h.b}B</span>`:''}`:'<span class="chip out">아웃</span>'):''}</div>`).join('') + (quiz&&quiz.revealed&&quiz.cands?`<div class="cands">${quiz.cands.map(c=>`<span>${c}</span>`).join('')}</div>`:'');
 }
 function toggleOffline(){
   offlineAllowed=!offlineAllowed;
@@ -393,7 +516,7 @@ $('pauseMsg').addEventListener('change',()=>{ if(paused){ paused=!paused; toggle
 function bigCode(){ $('bigCodeShow').textContent=code; $('bigLinkShow').textContent=studentURL(); $('bigView').classList.add('on'); }
 document.querySelectorAll('#rangeSeg button').forEach(b=>b.onclick=()=>{ range=b.dataset.r; document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('sel',x===b)); renderRecords(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('bigView').classList.remove('on'); ovClose(); } });
-initQuizSel(); renderQuiz();
+initQuizSel(); initSit(); renderQuiz();
 showCode(); renderStudents(); renderRecords(); openPeer();
 </script>
 </body>
