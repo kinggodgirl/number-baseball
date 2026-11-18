@@ -146,6 +146,34 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;display:none;z-index:20;max-width:90%;text-align:center}
 .toast.on{display:block}
 @media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
+/* 남은 경우의 수 */
+.cnt{display:inline-flex;align-items:center;gap:6px;background:#0b1f14;border:2px solid var(--line);border-radius:999px;padding:4px 12px;font-size:15px;margin-top:10px}
+.cnt b{font-family:"Black Han Sans";font-weight:400;font-size:22px;color:var(--yellow)}
+.log li .left{font-size:14px;opacity:.85;margin-left:auto;white-space:nowrap}
+.log li .left b{color:var(--yellow);font-size:16px}
+/* 복기 */
+.rv{text-align:left;max-height:62vh;overflow:auto;margin:10px 0}
+.rv-row{padding:10px 0;border-bottom:1px dashed var(--line)}
+.rv-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rv-n{font-size:14px;opacity:.75;width:34px}
+.bar{height:16px;border-radius:8px;background:var(--yellow);min-width:4px;transition:width .4s}
+.bar-wrap{display:flex;align-items:center;gap:8px;margin-top:6px}
+.bar-wrap .bar-bg{flex:1;background:#0b1f14;border-radius:8px;overflow:hidden}
+.bar-wrap span{font-size:14px;white-space:nowrap;min-width:72px;text-align:right}
+.rv-best{font-size:14px;opacity:.85;margin-top:6px;line-height:1.5}
+.rv-best .tiles{vertical-align:middle}
+/* 후보 표 (하 단계) */
+.cand{display:grid;gap:4px;margin-top:10px}
+.cand .hd{font-family:"Black Han Sans";font-size:18px;opacity:.7;display:flex;align-items:center;justify-content:center}
+.cand button{font-family:"Black Han Sans";font-weight:400;font-size:20px;padding:8px 0;background:#0b1f14;color:var(--chalk);border:2px solid var(--line);border-radius:8px}
+.cand button.x{color:#4f5d55;text-decoration:line-through;background:#18241e;border-color:#18241e}
+.cand button.o{color:var(--board);background:var(--yellow);border-color:var(--yellow)}
+.cand .no{background:repeating-linear-gradient(45deg,#18241e 0 6px,#0f1a15 6px 12px);border-radius:8px}
+.cand-info{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:15px;flex-wrap:wrap;gap:6px}
+.cand-info b{color:var(--yellow);font-family:"Black Han Sans";font-weight:400;font-size:22px}
+/* 퀴즈 */
+.quiz-q{font-size:21px;font-weight:700;line-height:1.5;margin:10px 0 16px}
+.quiz-ans{font-family:"Black Han Sans";font-size:64px;color:var(--yellow);line-height:1}
 </style>
 </head>
 <body>
@@ -249,7 +277,11 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
     <ul class="log" id="myLog"></ul>
     <div class="legend" id="gameLegend" style="margin-top:12px"></div>
   </div>
-  <details class="card fold" open>
+  <details class="card fold" id="candFold" open style="display:none">
+    <summary>🔢 후보 표 <span class="muted">눌러서 지우기 → 동그라미 → 원래대로</span></summary>
+    <div id="candBox"></div>
+  </details>
+  <details class="card fold" id="memoFold" open>
     <summary>📝 메모판 <span class="muted">누를 때마다 지움 → 있음 → 원래대로</span></summary>
     <div id="memoPad" class="keys" style="margin-top:12px"></div>
   </details>
@@ -302,7 +334,11 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
         <button class="btn-y btn-full" onclick="saveRecord()">기록하기</button>
       </div>
     </div>
-    <details class="card fold" open>
+    <details class="card fold" id="offCandFold" open style="display:none">
+      <summary>🔢 후보 표 <span class="muted">눌러서 지우기 → 동그라미 → 원래대로</span></summary>
+      <div id="offCandBox"></div>
+    </details>
+    <details class="card fold" id="offMemoFold" open>
       <summary>📝 메모판 <span class="muted">누를 때마다 지움 → 있음 → 원래대로</span></summary>
       <div id="offMemoPad" class="keys" style="margin-top:12px"></div>
     </details>
@@ -318,6 +354,7 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 <div class="overlay" id="gateOv" style="z-index:25;background:rgba(10,20,15,.96)">
   <div class="card center"><div style="font-size:64px">🔌</div><h2>선생님과 연결이 끊겼어요</h2><p class="note">다시 연결하는 중이에요. 잠시 기다려 주세요.</p><button class="btn-ghost btn-full" onclick="leaveToHome()">처음 화면으로</button></div>
 </div>
+<div class="overlay" id="quizOv" style="z-index:28;background:rgba(10,20,15,.95)"><div class="card center" id="quizCard"></div></div>
 <div class="overlay" id="pauseOv" style="z-index:30;background:rgba(10,20,15,.97)">
   <div class="center"><div style="font-size:90px">✋</div><div class="result-title" style="font-size:46px">잠깐 멈춤!</div><p id="pauseMsg" style="font-size:22px;margin-top:8px">선생님을 봐 주세요</p></div>
 </div>
@@ -415,7 +452,9 @@ function classConnect(code){
         classSend({t:'ping'});
       },4000);
     });
-    c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on); });
+    c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on);
+      if(d.t==='count') setShowCount(!!d.on);
+      if(d.t==='quiz'||d.t==='quizReveal'||d.t==='quizClose') onQuiz(d); });
     c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
   p.on('error',err=>{
@@ -455,6 +494,97 @@ $('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:
   updateGate();
   if(code){ $('classCode').value=code; if($('myName').value.trim()) setTimeout(()=>classConnect(code),300); else setClassState('이름을 입력하고 [연결]을 누르세요.'); }
 })();
+
+/* =========================================================
+   경우의 수: 후보 계산
+========================================================= */
+const CAND_CACHE={};
+function allCands(lv){
+  if(CAND_CACHE[lv.key]) return CAND_CACHE[lv.key];
+  const ds=digitsOf(lv), out=[];
+  (function rec(cur){ if(cur.length===lv.len){ out.push(cur.slice()); return; } for(const d of ds){ if(!cur.includes(d)){ cur.push(d); rec(cur); cur.pop(); } } })([]);
+  return CAND_CACHE[lv.key]=out;
+}
+function hintKey(h){ return Array.isArray(h) ? h.join('') : (h.s+'S'+h.b+'B'); }
+function filterCands(cands, g, h, lv){ const k=hintKey(h); return cands.filter(c=>hintKey(judge(c,g,lv))===k); }
+/* pairs: [{g,h}] 순서대로 → 회마다 남은 후보 수 배열 (처음 전체 포함) */
+function countsAfter(lv, pairs){
+  let c=allCands(lv); const out=[c.length];
+  for(const p of pairs){ c=filterCands(c,p.g,p.h,lv); out.push(c.length); }
+  return out;
+}
+/* 남은 후보(정답일 수 있는 숫자) 중에서, 운이 가장 나빠도 남는 수가 가장 적은 추측 */
+function bestGuess(lv, remain){
+  if(remain.length<=1) return {g:remain[0]||null, worst:remain.length?1:0};
+  let best=null, bw=Infinity;
+  for(const q of remain){
+    const m=new Map(); let w=0;
+    for(const c of remain){ const k=hintKey(judge(c,q,lv)); const v=(m.get(k)||0)+1; m.set(k,v); if(v>w){ w=v; if(w>=bw) break; } }
+    if(w<bw){ bw=w; best=q; }
+  }
+  return {g:best, worst:bw};
+}
+function worstOf(lv, remain, q){ const m=new Map(); let w=0; for(const c of remain){ const k=hintKey(judge(c,q,lv)); const v=(m.get(k)||0)+1; m.set(k,v); if(v>w) w=v; } return w; }
+CL.showCount=false;
+function setShowCount(on){ CL.showCount=on; if(G&&G.started) renderGame(); if(OFF) renderOff(); }
+function countHTML(prev, now){ return `<div class="cnt">남은 경우의 수 <b>${prev}</b> → <b>${now}</b>가지</div>`; }
+
+/* =========================================================
+   후보 표 (2자리 단계): 행=십의 자리, 열=일의 자리
+========================================================= */
+function makeCandTable(box, lv){
+  const ds=digitsOf(lv), n=ds.length;
+  box.innerHTML=`<div class="cand" style="grid-template-columns:repeat(${n+1},1fr)"></div><div class="cand-info"><span>남은 후보 <b class="left-n">${n*(n-1)}</b>개</span><button class="btn-ghost" style="padding:6px 12px;font-size:14px">모두 되돌리기</button></div>`;
+  const g=box.querySelector('.cand'), leftEl=box.querySelector('.left-n');
+  g.insertAdjacentHTML('beforeend','<div class="hd" style="font-size:12px;line-height:1.1">십＼일</div>'+ds.map(d=>`<div class="hd">${d}</div>`).join(''));
+  const cells=[];
+  for(const a of ds){
+    g.insertAdjacentHTML('beforeend',`<div class="hd">${a}</div>`);
+    for(const b of ds){
+      if(a===b){ g.insertAdjacentHTML('beforeend','<div class="no" title="같은 숫자는 쓸 수 없어요"></div>'); continue; }
+      const btn=document.createElement('button'); btn.textContent=''+a+b; let st=0;
+      btn.onclick=()=>{ st=(st+1)%3; btn.className= st===1?'x':st===2?'o':''; upd(); };
+      btn._reset=()=>{ st=0; btn.className=''; };
+      g.appendChild(btn); cells.push(btn);
+    }
+  }
+  function upd(){ leftEl.textContent=cells.filter(c=>c.className!=='x').length; }
+  box.querySelector('.cand-info button').onclick=()=>{ cells.forEach(c=>c._reset()); upd(); };
+}
+
+/* =========================================================
+   예측 퀴즈 (교사가 냄)
+========================================================= */
+let QZ=null;
+function onQuiz(d){
+  if(d.t==='quiz'){
+    if(!QZ || QZ.id!==d.id) QZ={id:String(d.id).slice(0,20), q:String(d.q||'').slice(0,200), my:null, revealed:false};
+    renderQuiz(); $('quizOv').classList.add('on');
+  } else if(d.t==='quizReveal' && QZ && QZ.id===d.id){
+    QZ.revealed=true; QZ.ans=d.ans; QZ.exp=String(d.exp||'').slice(0,120); renderQuiz(); $('quizOv').classList.add('on');
+  } else if(d.t==='quizClose'){ QZ=null; $('quizOv').classList.remove('on'); }
+}
+function renderQuiz(){
+  const c=$('quizCard');
+  if(!QZ.revealed){
+    c.innerHTML=`<div style="font-size:48px">🤔</div><h2>예측해 보세요!</h2><p class="quiz-q">${esc(QZ.q)}</p>
+      <input type="text" id="quizIn" class="code" inputmode="numeric" maxlength="5" placeholder="?" value="${QZ.my??''}" style="font-size:44px;letter-spacing:6px">
+      <button class="btn-y btn-full" onclick="submitQuiz()">${QZ.my!=null?'답 고치기':'제출하기'}</button>
+      <p class="muted" style="margin-top:10px;min-height:22px" id="quizMsg">${QZ.my!=null?`✔ ${QZ.my}(이)라고 제출했어요. 선생님이 정답을 공개할 때까지 고칠 수 있어요.`:''}</p>`;
+    const inp=$('quizIn'); inp.addEventListener('input',()=>inp.value=inp.value.replace(/\D/g,'').slice(0,5)); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submitQuiz(); });
+  } else {
+    const ok = QZ.my!=null && +QZ.my===+QZ.ans;
+    c.innerHTML=`<div style="font-size:48px">${ok?'🎉':'💡'}</div><p class="quiz-q" style="margin-bottom:6px">${esc(QZ.q)}</p>
+      <p class="muted">정답</p><div class="quiz-ans">${esc(QZ.ans)}</div>
+      ${QZ.exp?`<p style="font-size:20px;margin-top:10px">${esc(QZ.exp)}</p>`:''}
+      <p style="margin-top:12px">${QZ.my!=null?`내 답: <b>${esc(QZ.my)}</b> ${ok?'— 정답!':''}`:'답을 내지 않았어요'}</p>
+      <button class="btn-ghost btn-full" onclick="$('quizOv').classList.remove('on')">닫기</button>`;
+  }
+}
+function submitQuiz(){
+  const v=$('quizIn').value.trim(); if(!v){ $('quizMsg').textContent='숫자를 입력하세요'; return; }
+  QZ.my=+v; classSend({t:'quizAns', id:QZ.id, v:QZ.my, name:myName(), dev:deviceId}); renderQuiz();
+}
 
 /* ---------- 화면 전환 ---------- */
 function go(id){
@@ -612,7 +742,7 @@ function bindConn(hostLv){
   conn.on('error',()=>{ onPeerGone(); });
 }
 function onPeerGone(){
-  if(!G && $('wait').classList.contains('on')) return;
+  if(!G) return;   // 게임 중이 아니면(내가 나간 경우 포함) 알릴 필요 없음
   if(G && G.left) return;
   if(G) G.left=true;
   showOverlay(`<h2>연결이 끊어졌어요</h2><p class="note">상대가 나갔거나 인터넷이 끊겼어요.</p><button class="btn-y btn-full" onclick="leaveToHome()">처음으로</button>`);
@@ -675,6 +805,9 @@ function startOnlineGame(){
   $('gameLegend').innerHTML=legendHTML(lv);
   guessPad=makeKeypad($('guessPad'), lv, {okText:'추측하기', onSubmit:v=>submitGuess(v)});
   makeMemo($('memoPad'), lv);
+  const two = lv.len===2;
+  $('candFold').style.display= two?'':'none'; if(two) makeCandTable($('candBox'), lv);
+  $('memoFold').open = !two;
   renderGame(); go('game');
 }
 function R(i){ return G.rounds[i] || (G.rounds[i]={myG:null,myH:null,oppG:null,oppH:null}); }
@@ -710,6 +843,8 @@ function checkRound(){
   }
   renderGame();
 }
+function myPairs(){ const out=[]; for(const x of G.rounds){ if(x&&x.myG&&x.myH&&x.oppH) out.push({g:x.myG,h:x.myH}); else break; } return out; }
+function myCounts(){ const key=myPairs().length; if(!G._cc||G._cc.k!==key) G._cc={k:key, v:countsAfter(G.lv, myPairs())}; return G._cc.v; }
 function renderGame(){
   const lv=G.lv, r=G.rounds[G.cur]||{};
   const last = MAX_ROUNDS-1;
@@ -733,13 +868,14 @@ function renderGame(){
     $('lastRes').innerHTML=`<div class="lr-title">${li+1}회 결과</div>
       <div class="lr-main">${tilesHTML(lr.myG,lr.myH,lv,'lg')}</div>
       <div class="lr-msg">${hintWords(lr.myH,lv)}</div>
+      ${CL.showCount ? (()=>{ const cs=myCounts(); return countHTML(cs[li], cs[li+1]); })() : ''}
       <div class="lr-opp">${esc(G.oppName)}의 추측 ${tilesHTML(lr.oppG,lr.oppH,lv,'sm')}</div>`;
   } else $('lastRes').style.display='none';
   // 기록: 둘 다 낸 회만 결과 공개 (동시 공개)
   const mine=[], theirs=[];
   G.rounds.forEach((x,i)=>{
     const done = x.myH && x.oppH, cls = i===li ? ' class="latest"' : '';
-    if(x.myG) mine.push(`<li${cls}><span class="n">${i+1}회</span>${tilesHTML(x.myG, done?x.myH:null, lv)}${done?'':'<span class="wait-t">결과 대기</span>'}</li>`);
+    if(x.myG) mine.push(`<li${cls}><span class="n">${i+1}회</span>${tilesHTML(x.myG, done?x.myH:null, lv)}${done?(CL.showCount?`<span class="left">→ <b>${myCounts()[i+1]}</b>가지</span>`:''):'<span class="wait-t">결과 대기</span>'}</li>`);
     if(x.oppG && (done || G.over)) theirs.push(`<li><span class="n">${i+1}회</span>${tilesHTML(x.oppG,x.oppH,lv,'sm')}</li>`);
   });
   $('myLog').innerHTML = mine.reverse().join('') || '<li class="empty">아직 없어요. 첫 추측을 해 보세요!</li>';
@@ -757,8 +893,33 @@ function showResult(iWin, theyWin, n){
     <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b> · ${esc(G.oppName)}의 숫자 <b id="oppSecretShow" style="color:var(--yellow);font-size:22px">${G.oppSecret||'…'}</b></p>
     <p class="muted" id="againMsg" style="margin-top:12px;min-height:20px">${G.oppAgain?`${esc(G.oppName)}님이 한 판 더 하고 싶어해요!`:''}</p>
     <button class="btn-y btn-full" onclick="askAgain(this)">한 판 더!</button>
+    <button class="btn-full" onclick="showReview()">📉 복기: 경우의 수가 어떻게 줄었을까?</button>
     <button class="btn-ghost btn-full" onclick="hideOverlay()">기록 보기</button>
     <button class="btn-ghost btn-full" onclick="send({t:'bye'});leaveToHome()">그만하기</button>`);
+}
+function showReview(){
+  const lv=G.lv, pairs=myPairs(), cs=countsAfter(lv,pairs), total=cs[0];
+  const rows=pairs.map((p,i)=>`<div class="rv-row"><div class="rv-top"><span class="rv-n">${i+1}회</span>${tilesHTML(p.g,p.h,lv,'sm')}</div>
+      <div class="bar-wrap"><div class="bar-bg"><div class="bar" style="width:${Math.max(0.8,cs[i+1]/total*100)}%"></div></div><span><b>${cs[i]}</b> → <b>${cs[i+1]}</b>가지</span></div>
+      <div class="rv-best" id="rvBest${i}">${cs[i]>1?'가장 잘 줄이는 추측 계산 중…':''}</div></div>`).join('');
+  showOverlay(`<h2>📉 복기</h2><p class="note">처음 가능한 비밀 숫자는 <b style="color:var(--yellow)">${total}가지</b>. 추측할 때마다 몇 가지로 줄었는지 보세요.</p>
+    <div class="rv"><div class="bar-wrap" style="margin-bottom:6px"><div class="bar-bg"><div class="bar" style="width:100%"></div></div><span>시작 <b>${total}</b>가지</span></div>${rows||'<p class="muted">추측 기록이 없어요</p>'}</div>
+    <button class="btn-y btn-full" onclick="showResult(...G.result)">돌아가기</button>`);
+  // 회마다 '가장 잘 줄이는 추측'을 차례로 계산 (화면이 멈추지 않게 나눠서)
+  let rem=allCands(lv), i=0;
+  const step=()=>{
+    if(i>=pairs.length||!$('rvBest'+i)) return;
+    if(rem.length<=1 && isWin(pairs[i].h,lv)){ const el=$('rvBest'+i); if(el) el.innerHTML='🎯 정답! 남은 1가지를 정확히 불렀어요.'; }
+    if(rem.length>1){
+      const b=bestGuess(lv,rem), myW=worstOf(lv,rem,pairs[i].g);
+      const el=$('rvBest'+i);
+      if(el) el.innerHTML = !b.g ? '' : isWin(pairs[i].h,lv) ? `🎯 정답! 남은 ${rem.length}가지 중에서 맞혔어요.` : (myW<=b.worst
+        ? `👍 아주 좋은 추측! 운이 가장 나빠도 <b>${myW}</b>가지 이하로 줄어드는 추측이었어요.`
+        : `내 추측은 운이 나쁘면 <b>${myW}</b>가지까지 남을 수 있었어요. 남은 후보 중 ${tilesHTML(b.g,null,lv,'sm')} 를 불렀다면 운이 가장 나빠도 <b>${b.worst}</b>가지로 줄었어요.`);
+    }
+    rem=filterCands(rem,pairs[i].g,pairs[i].h,lv); i++; setTimeout(step,20);
+  };
+  setTimeout(step,60);
 }
 function askAgain(btn){
   G.meAgain=true; send({t:'again'});
@@ -796,6 +957,7 @@ function startOffline(lv, secret){
     if(OFF.records.some(x=>x.g.join('')===v.join(''))){ toast('이미 추측했던 숫자예요'); return false; }
     beginRecord(v); return true; }});
   makeMemo($('offMemoPad'), lv);
+  const two=lv.len===2; $('offCandFold').style.display=two?'':'none'; if(two) makeCandTable($('offCandBox'), lv); $('offMemoFold').open=!two;
   $('recordHint').style.display='none';
   offTab('judge'); renderOff(); go('offPlay');
 }
@@ -835,7 +997,8 @@ function saveRecord(){
 function renderOff(){
   const lv=OFF.lv;
   $('judgeLog').innerHTML = OFF.judged.map((x,i)=>`<li><span class="n">${i+1}번</span>${tilesHTML(x.g,x.h,lv)}</li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
-  $('recordLog').innerHTML = OFF.records.map((x,i)=>`<li><span class="n">${i+1}번</span>${tilesHTML(x.g,x.h,lv)}</li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
+  const oc = CL.showCount ? countsAfter(lv, OFF.records) : null;
+  $('recordLog').innerHTML = OFF.records.map((x,i)=>`<li><span class="n">${i+1}번</span>${tilesHTML(x.g,x.h,lv)}${oc?`<span class="left">→ <b>${oc[i+1]}</b>가지</span>`:''}</li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
 }
 function confirmLeave(){
   showOverlay(`<h2>게임을 끝낼까요?</h2><p class="note">기록이 모두 지워져요.</p><div class="row" style="margin-top:12px"><button class="btn-ghost" onclick="hideOverlay()">계속하기</button><button class="btn-r" onclick="OFF=null;leaveToHome()">끝내기</button></div>`);

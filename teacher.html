@@ -51,6 +51,17 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
 .overlay.on{display:flex}
 .overlay .card{max-width:380px;text-align:center}
 .err{color:#ffb4a2;margin-top:8px;font-size:15px}
+.qz{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:12px}
+select{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:2px solid var(--line);background:#0b1f14;color:var(--chalk);margin-top:4px}
+button:disabled{opacity:.35;cursor:default}
+.dist{margin-top:8px;max-height:260px;overflow:auto}
+.dist .dr{display:grid;grid-template-columns:70px 1fr 44px;gap:8px;align-items:center;padding:3px 0}
+.dist .dv{font-family:"Black Han Sans";font-size:22px;text-align:right}
+.dist .db{height:20px;border-radius:6px;background:#3a5a48;min-width:4px}
+.dist .dr.ok .db{background:var(--yellow)}.dist .dr.ok .dv{color:var(--yellow)}
+.dist .dc{font-size:14px;opacity:.85}
+.dist .names{grid-column:2/4;font-size:12px;opacity:.6;margin-top:-2px}
+@media (max-width:860px){.qz{grid-template-columns:1fr}}
 .seg{display:inline-flex;background:#0b1f14;border:2px solid var(--line);border-radius:12px;padding:3px;gap:3px}
 .seg button{background:transparent;color:var(--chalk);padding:6px 14px;font-size:15px;border-radius:9px}
 .seg button.sel{background:var(--yellow);color:var(--board)}
@@ -94,6 +105,36 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
       <div class="row" style="justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
         <div><b>인터넷 없이 하기</b><br><span class="muted" id="offInfo">잠금 · 학생들이 쓸 수 없어요</span></div>
         <button class="btn-ghost" id="offBtn" onclick="toggleOffline()">🔓 허용하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <h2 style="margin:0">🎲 경우의 수 수업</h2>
+      <div class="row" style="gap:10px">
+        <span class="muted" id="countInfo">게임 중 남은 경우의 수: 숨김</span>
+        <button class="btn-ghost" id="countBtn" onclick="toggleCount()">보이기</button>
+      </div>
+    </div>
+    <div class="qz">
+      <div>
+        <label class="muted" for="qzSel">예측 퀴즈 문제</label>
+        <select id="qzSel"></select>
+        <div id="qzCustom" style="display:none;margin-top:8px">
+          <input type="text" id="qzQ" maxlength="200" placeholder="문제를 입력하세요">
+          <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="qzA" maxlength="6" placeholder="정답 (숫자)" style="max-width:150px"><input type="text" id="qzE" maxlength="120" placeholder="풀이 한 줄 (선택)"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn-y" id="qzStart" onclick="startQuiz()">퀴즈 내기</button>
+          <button id="qzReveal" onclick="revealQuiz()" disabled>정답 공개</button>
+          <button class="btn-ghost" id="qzClose" onclick="closeQuiz()" disabled>퀴즈 닫기</button>
+        </div>
+        <p class="muted" id="qzState" style="margin-top:8px">학생 화면에 문제가 뜨고, 답을 입력하면 오른쪽에 모여요.</p>
+      </div>
+      <div>
+        <div class="row" style="justify-content:space-between"><b>학생 답 분포</b><span class="row" style="gap:8px"><label class="muted" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="qzHide" onchange="renderQuiz()"> 이름 숨기기 (화면 띄울 때)</label><span class="badge" id="qzCount">0명 응답</span></span></div>
+        <div id="qzDist" class="dist"><p class="empty">퀴즈를 내면 여기에 답이 모여요</p></div>
       </div>
     </div>
   </div>
@@ -145,6 +186,16 @@ let code=LS.get('nb-t-code',null);
 let records=LS.get('nb-t-records',[]);   // {gid,time,a,b,winner,rounds,level}
 let paused=false;
 let offlineAllowed=false;
+let showCount=false;
+let quiz=null; // {id,q,ans,exp,revealed,answers:Map}
+const QUIZ_PRESETS=[
+  {q:'1부터 6까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 두 자리 수는 모두 몇 개일까요?', ans:30, exp:'십의 자리 6가지 × 일의 자리 5가지 = 30', tag:'하 (1~6, 2자리)'},
+  {q:'1부터 6까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 세 자리 수는 모두 몇 개일까요?', ans:120, exp:'6 × 5 × 4 = 120', tag:'중상 (1~6, 3자리)'},
+  {q:'1부터 9까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 세 자리 수는 모두 몇 개일까요?', ans:504, exp:'9 × 8 × 7 = 504', tag:'중 (1~9, 3자리)'},
+  {q:'0부터 9까지의 숫자 중 서로 다른 3개를 한 줄로 늘어놓는 방법은 모두 몇 가지일까요? (맨 앞에 0이 와도 돼요)', ans:720, exp:'10 × 9 × 8 = 720', tag:'상 (0~9, 3자리)'},
+  {q:'0부터 9까지의 숫자로, 같은 숫자를 두 번 쓰지 않고 만들 수 있는 세 자리 자연수는 모두 몇 개일까요?', ans:648, exp:'백의 자리는 0을 뺀 9가지 × 9 × 8 = 648', tag:'심화: 맨 앞 0 금지'},
+  {q:'1부터 6까지의 숫자로 만들 수 있는 두 자리 수는 모두 몇 개일까요? (같은 숫자를 또 써도 돼요)', ans:36, exp:'6 × 6 = 36', tag:'비교: 같은 숫자 허용'},
+];
 const students=new Map(); // key: conn peer id -> {conn,name,dev,status,online}
 let peer=null;
 
@@ -169,6 +220,8 @@ function openPeer(attempt=0){
       students.set(c._key,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true,seen:Date.now()});
       c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
       c.send({t:'offline',on:offlineAllowed});
+      c.send({t:'count',on:showCount});
+      if(quiz){ c.send({t:'quiz',id:quiz.id,q:quiz.q}); if(quiz.revealed) c.send({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp}); }
       renderStudents();
     });
     c.on('data',d=>onData(c,d));
@@ -205,6 +258,11 @@ function onData(c,d){
     s.status=String(d.status||'').slice(0,40); if(d.name) s.name=String(d.name).slice(0,10); renderStudents();
   } else if(d.t==='result'){
     addResult(d);
+  } else if(d.t==='quizAns'){
+    if(quiz && d.id===quiz.id && !quiz.revealed){
+      const v=Math.max(0,Math.min(99999,Math.floor(+d.v)||0));
+      quiz.answers.set(s.dev||c._key,{name:s.name,v}); renderQuiz();
+    }
   }
 }
 // 생존 신호가 12초 넘게 없으면 접속 끊김으로 표시, 끊긴 지 10분 지난 줄은 정리
@@ -235,6 +293,39 @@ function togglePause(){
   b.textContent= paused ? '▶ 다시 시작하기 (지금 멈춘 상태)' : '✋ 모든 학생 화면 멈추기';
 }
 
+function bcast(o){ for(const s of students.values()){ if(s.online) try{ s.conn.send(o); }catch(e){} } }
+function toggleCount(){
+  showCount=!showCount; bcast({t:'count',on:showCount});
+  $('countBtn').textContent=showCount?'숨기기':'보이기'; $('countBtn').className=showCount?'btn-y':'btn-ghost';
+  $('countInfo').textContent='게임 중 남은 경우의 수: '+(showCount?'보이는 중':'숨김');
+}
+function initQuizSel(){
+  $('qzSel').innerHTML=QUIZ_PRESETS.map((p,i)=>`<option value="${i}">[${p.tag}] ${esc(p.q)}</option>`).join('')+'<option value="custom">✏️ 직접 입력</option>';
+  $('qzSel').onchange=()=>{ $('qzCustom').style.display=$('qzSel').value==='custom'?'block':'none'; };
+}
+function startQuiz(){
+  let q,ans,exp;
+  if($('qzSel').value==='custom'){ q=$('qzQ').value.trim(); ans=$('qzA').value.replace(/\D/g,''); exp=$('qzE').value.trim();
+    if(!q||!ans){ $('qzState').textContent='문제와 정답(숫자)을 입력하세요.'; return; } ans=+ans; }
+  else { const p=QUIZ_PRESETS[+$('qzSel').value]; q=p.q; ans=p.ans; exp=p.exp; }
+  quiz={id:Date.now().toString(36), q, ans, exp, revealed:false, answers:new Map()};
+  bcast({t:'quiz',id:quiz.id,q}); renderQuiz();
+}
+function revealQuiz(){ if(!quiz) return; quiz.revealed=true; bcast({t:'quizReveal',id:quiz.id,ans:quiz.ans,exp:quiz.exp}); renderQuiz(); }
+function closeQuiz(){ bcast({t:'quizClose'}); quiz=null; renderQuiz(); }
+function renderQuiz(){
+  $('qzStart').textContent = quiz ? '새 퀴즈 내기' : '퀴즈 내기';
+  $('qzReveal').disabled=!quiz||quiz.revealed; $('qzClose').disabled=!quiz;
+  if(!quiz){ $('qzState').textContent='학생 화면에 문제가 뜨고, 답을 입력하면 오른쪽에 모여요.'; $('qzCount').textContent='0명 응답'; $('qzDist').innerHTML='<p class="empty">퀴즈를 내면 여기에 답이 모여요</p>'; return; }
+  const arr=[...quiz.answers.values()], on=[...students.values()].filter(s=>s.online&&s.dev).length;
+  const okN=arr.filter(a=>a.v===quiz.ans).length;
+  $('qzCount').textContent=`${arr.length}명 응답 / 접속 ${on}명`;
+  $('qzState').innerHTML = quiz.revealed ? `정답 <b style="color:var(--yellow)">${quiz.ans}</b> 공개함 · 맞힌 학생 ${okN}명 (${arr.length?Math.round(okN/arr.length*100):0}%)${quiz.exp?' · '+esc(quiz.exp):''}` : `진행 중: “${esc(quiz.q.slice(0,40))}${quiz.q.length>40?'…':''}” · 정답은 아직 학생에게 안 보여요`;
+  const m=new Map(); for(const a of arr){ if(!m.has(a.v)) m.set(a.v,[]); m.get(a.v).push(a.name); }
+  const rows=[...m.entries()].sort((x,y)=> y[1].length-x[1].length || x[0]-y[0]);
+  const max=Math.max(1,...rows.map(r=>r[1].length));
+  $('qzDist').innerHTML = rows.length ? rows.map(([v,names])=>`<div class="dr ${quiz.revealed&&v===quiz.ans?'ok':''}"><div class="dv">${v}</div><div class="db" style="width:${names.length/max*100}%"></div><div class="dc">${names.length}명</div>${$('qzHide').checked?'':`<div class="names">${names.map(esc).join(', ')}</div>`}</div>`).join('') : '<p class="empty">아직 답이 없어요</p>';
+}
 function toggleOffline(){
   offlineAllowed=!offlineAllowed;
   for(const s of students.values()){ if(s.online) try{ s.conn.send({t:'offline',on:offlineAllowed}); }catch(e){} }
@@ -246,6 +337,7 @@ function renderStudents(){
   const arr=[...students.values()].filter(s=>s.dev).sort((a,b)=> (b.online-a.online) || a.name.localeCompare(b.name,'ko'));
   const on=arr.filter(s=>s.online).length;
   $('stuCount').textContent=on+'명'; $('pauseInfo').textContent=`연결된 학생 ${on}명`; $('bigCount').textContent=`지금 연결된 학생 ${on}명`;
+  if(typeof quiz!=='undefined' && quiz) renderQuiz();
   $('stuList').innerHTML = arr.length ? arr.map(s=>`<li class="${s.online?'':'off'}"><span class="dot ${s.online?'on':''}"></span><span class="nm">${esc(s.name)}</span><span class="st">${s.online?esc(s.status):'연결 끊김'}</span></li>`).join('') : '<li class="empty">아직 연결된 학생이 없어요</li>';
 }
 function startOfToday(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
@@ -301,6 +393,7 @@ $('pauseMsg').addEventListener('change',()=>{ if(paused){ paused=!paused; toggle
 function bigCode(){ $('bigCodeShow').textContent=code; $('bigLinkShow').textContent=studentURL(); $('bigView').classList.add('on'); }
 document.querySelectorAll('#rangeSeg button').forEach(b=>b.onclick=()=>{ range=b.dataset.r; document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('sel',x===b)); renderRecords(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('bigView').classList.remove('on'); ovClose(); } });
+initQuizSel(); renderQuiz();
 showCode(); renderStudents(); renderRecords(); openPeer();
 </script>
 </body>
