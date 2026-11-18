@@ -42,8 +42,8 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
 .lv.sel{border-color:var(--yellow);background:#2a2a10}
 .bigcode{font-family:"Black Han Sans";font-size:72px;letter-spacing:14px;text-align:center;color:var(--yellow);margin:6px 0}
 .center{text-align:center}
-.muted{opacity:.7;font-size:14px}
-.note{font-size:14px;line-height:1.6;opacity:.85}
+.muted{opacity:.8;font-size:15px}
+.note{font-size:15px;line-height:1.65;opacity:.9}
 .err{color:#ffb4a2;font-size:15px;margin-top:10px;line-height:1.5}
 /* keypad */
 .slots{display:flex;justify-content:center;gap:10px;margin:8px 0 14px}
@@ -59,14 +59,37 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
 .kp-actions button{flex:1}
 /* hints */
 .hint{display:inline-flex;gap:6px}
-.h{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;line-height:1}
+.h{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.h svg{width:64%;height:64%;display:block}
 .h.O{background:var(--yellow);color:var(--board)}
 .h.A{background:var(--blue);color:#fff}
 .h.X{background:#3c4a42;color:#9fb0a6}
 .sb{font-family:"Black Han Sans";font-size:24px}
 .sb .s{color:var(--yellow)}.sb .b{color:#7fb3ff}.sb .out{color:#ff8c6b}
 .legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:14px;margin:4px 0 10px;opacity:.9}
-.legend .h{width:24px;height:24px;font-size:15px;margin-right:4px;vertical-align:middle}
+.legend .h{width:24px;height:24px;margin-right:4px;vertical-align:middle}
+.legend span{display:inline-flex;align-items:center}
+.h2s{font-size:20px;margin-bottom:6px}
+.players{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:10px}
+.pl{background:var(--board);border:2px solid var(--line);border-radius:14px;padding:8px 10px;text-align:center;font-weight:700;font-size:17px;line-height:1.35}
+.pl small{display:block;font-weight:400;font-size:14px;opacity:.85}
+.pl.done{border-color:#5ee08a}.pl.done small{color:#5ee08a;opacity:1}
+.players .vs{font-family:"Black Han Sans";font-size:20px;opacity:.6}
+.lastres{text-align:center;border-color:var(--yellow)}
+.lastres .lr-title{font-size:15px;opacity:.85;margin-bottom:4px}
+.lastres .lr-main{display:flex;align-items:center;justify-content:center;gap:14px}
+.lastres .lr-main .g{font-family:"Black Han Sans";font-size:44px;letter-spacing:6px}
+.lastres .lr-main .h{width:48px;height:48px}.lastres .lr-main .sb{font-size:36px}
+.lastres .lr-opp{margin-top:8px;font-size:15px;opacity:.85;display:flex;align-items:center;justify-content:center;gap:8px}
+.lastres .lr-opp .h{width:24px;height:24px}.lastres .lr-opp .sb{font-size:18px}
+details.fold summary{cursor:pointer;font-family:"Black Han Sans";font-size:20px;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::after{content:"▾";margin-left:auto;opacity:.6;transition:transform .15s}
+details.fold:not([open]) summary::after{transform:rotate(-90deg)}
+details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
+.log li.latest{background:rgba(255,210,63,.08);border-radius:8px}
+.example{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:#0b1f14;border-radius:12px;padding:10px;margin:10px 0;font-size:15px}
+.example b{font-family:"Black Han Sans";font-weight:400;font-size:24px;letter-spacing:3px;color:var(--yellow)}
 /* game */
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
 .pill{background:var(--board);border:2px solid var(--line);border-radius:999px;padding:6px 14px;font-size:15px}
@@ -79,18 +102,19 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
 .log li .n{font-size:13px;opacity:.6;width:22px}
 .log li .g{font-family:"Black Han Sans";font-size:28px;letter-spacing:4px;flex:1}
 .log.small li .g{font-size:22px;letter-spacing:2px}
-.log.small .h{width:24px;height:24px;font-size:15px}
+.log.small .h{width:24px;height:24px}
 .log.small .sb{font-size:18px}
 .empty{opacity:.5;font-size:14px;padding:8px 0}
 .tabs{display:flex;gap:6px;margin-bottom:12px}
 .tabs button{flex:1;background:#0b1f14;color:var(--chalk);border:2px solid var(--line);font-size:16px}
 .tabs button.sel{background:var(--yellow);color:var(--board);border-color:var(--yellow)}
 .bigresult{text-align:center;padding:16px 0}
-.bigresult .hint{gap:12px}.bigresult .h{width:72px;height:72px;font-size:46px}
+.bigresult .hint{gap:12px}.bigresult .h{width:72px;height:72px}
 .bigresult .sb{font-size:54px}
 .bigresult .g{font-family:"Black Han Sans";font-size:40px;letter-spacing:8px;margin-bottom:8px}
 .pick{display:flex;justify-content:center;gap:10px;margin:8px 0}
-.pick button{width:64px;height:64px;border-radius:50%;font-size:30px;padding:0}
+.pick button{width:64px;height:64px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.pick button svg{width:60%;height:60%}
 .pick button.O{background:var(--yellow)}.pick button.A{background:var(--blue);color:#fff}.pick button.X{background:#3c4a42;color:#9fb0a6}
 .stepper{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}
 .stepper button{width:48px;height:48px;padding:0;font-size:24px}
@@ -137,7 +161,8 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
   </div>
   <div class="card">
     <h2>규칙</h2>
-    <div class="legend"><span><i class="h O">○</i>숫자·자리 모두 맞음</span><span><i class="h A">△</i>숫자는 있는데 자리가 다름</span><span><i class="h X">×</i>없는 숫자</span></div>
+    <div class="legend" id="homeLegend"></div>
+    <div class="example">예) 정답 <b>352</b> · 추측 <b>325</b> → <span id="exHint"></span></div>
     <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 결과가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>상</b> 단계는 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
   </div>
 </section>
@@ -193,19 +218,26 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
 <section id="game" class="screen">
   <div class="topbar">
     <span class="pill" id="roundPill">1회</span>
+    <span class="pill" id="gameLvPill"></span>
     <span class="pill secret-box" id="mySecretPill" onclick="toggleSecret()">내 숫자: ●●● 👁</span>
   </div>
+  <div class="players"><div class="pl" id="plMe"></div><div class="vs">VS</div><div class="pl" id="plOpp"></div></div>
   <div class="status" id="gameStatus">추측할 숫자를 입력하세요</div>
+  <div class="card lastres" id="lastRes" style="display:none"></div>
+  <div class="card"><div id="guessPad"></div></div>
   <div class="card">
-    <div id="guessPad"></div>
-    <p class="center muted" style="margin-top:10px">메모: 아래 버튼을 누를 때마다 <b>지움 → 있음 → 원래대로</b></p>
-    <div id="memoPad" class="keys" style="margin-top:8px"></div>
+    <h2 class="h2s">내 추측 기록</h2>
+    <ul class="log" id="myLog"></ul>
+    <div class="legend" id="gameLegend" style="margin-top:12px"></div>
   </div>
-  <div class="cols">
-    <div class="card"><h2 style="font-size:20px">내 추측</h2><ul class="log small" id="myLog"></ul></div>
-    <div class="card"><h2 style="font-size:20px" id="oppLogTitle">상대 추측</h2><ul class="log small" id="oppLog"></ul></div>
-  </div>
-  <div class="legend" id="gameLegend"></div>
+  <details class="card fold" open>
+    <summary>📝 메모판 <span class="muted">누를 때마다 지움 → 있음 → 원래대로</span></summary>
+    <div id="memoPad" class="keys" style="margin-top:12px"></div>
+  </details>
+  <details class="card fold">
+    <summary id="oppLogTitle">상대의 추측</summary>
+    <ul class="log small" id="oppLog" style="margin-top:8px"></ul>
+  </details>
 </section>
 
 <!-- OFFLINE SETUP -->
@@ -239,7 +271,7 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
       <div id="judgePad"></div>
     </div>
     <div class="card" id="judgeResultCard" style="display:none"><div class="bigresult" id="judgeResult"></div></div>
-    <div class="card"><h2 style="font-size:20px">상대의 추측 기록</h2><ul class="log" id="judgeLog"></ul></div>
+    <div class="card"><h2 class="h2s">상대의 추측 기록</h2><ul class="log" id="judgeLog"></ul></div>
   </div>
   <div id="recordPane" style="display:none">
     <div class="card">
@@ -251,11 +283,11 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
         <button class="btn-y btn-full" onclick="saveRecord()">기록하기</button>
       </div>
     </div>
-    <div class="card">
-      <p class="center muted">메모: 누를 때마다 <b>지움 → 있음 → 원래대로</b></p>
-      <div id="offMemoPad" class="keys" style="margin-top:8px"></div>
-    </div>
-    <div class="card"><h2 style="font-size:20px">내 추측 기록</h2><ul class="log" id="recordLog"></ul></div>
+    <details class="card fold" open>
+      <summary>📝 메모판 <span class="muted">누를 때마다 지움 → 있음 → 원래대로</span></summary>
+      <div id="offMemoPad" class="keys" style="margin-top:12px"></div>
+    </details>
+    <div class="card"><h2 class="h2s">내 추측 기록</h2><ul class="log" id="recordLog"></ul></div>
   </div>
   <button class="btn-ghost btn-full" onclick="confirmLeave()">새 게임 / 처음으로</button>
 </section>
@@ -290,7 +322,14 @@ function judge(secret, guess, lv){
   return r;
 }
 function isWin(h, lv){ return lv.mode==='sb' ? h.s===lv.len : h.every(x=>x==='O'); }
-const SYM = {O:'○',A:'△',X:'×'};
+const SYM = {
+  O:'<svg viewBox="0 0 24 24" aria-label="맞음"><circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="3.4"/></svg>',
+  A:'<svg viewBox="0 0 24 24" aria-label="자리 다름"><path d="M12 4.2 20.6 19.2H3.4z" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"/></svg>',
+  X:'<svg viewBox="0 0 24 24" aria-label="없음"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>'
+};
+const PEER_OPTS = {debug:0, config:{iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}
+]}};
 function hintHTML(h, lv){
   if(h==null) return '<span class="muted">…</span>';
   if(lv.mode==='sb'){
@@ -301,7 +340,7 @@ function hintHTML(h, lv){
 }
 function legendHTML(lv){
   if(lv.mode==='sb') return '<span><b style="color:var(--yellow)">S</b> 스트라이크: 숫자·자리 맞음</span><span><b style="color:#7fb3ff">B</b> 볼: 숫자만 맞음</span><span><b style="color:#ff8c6b">아웃</b> 하나도 없음</span>';
-  return '<span><i class="h O">○</i>숫자·자리 맞음</span><span><i class="h A">△</i>숫자만 맞음</span><span><i class="h X">×</i>없는 숫자</span>';
+  return `<span><i class="h O">${SYM.O}</i>숫자·자리 맞음</span><span><i class="h A">${SYM.A}</i>숫자만 맞음 (자리 다름)</span><span><i class="h X">${SYM.X}</i>없는 숫자</span>`;
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toast(msg,ms=2600){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),ms);}
@@ -321,14 +360,15 @@ function classJoinClick(){
   if(code.length!==4){ setClassState('수업 코드 4자리를 입력하세요.'); return; }
   if(!$('myName').value.trim()){ setClassState('먼저 이름을 입력하세요.'); $('myName').focus(); return; }
   try{ localStorage.setItem('nb-name',$('myName').value.trim()); localStorage.setItem('nb-class',code);}catch(e){}
+  if(CL.code===code && (CL.connected || Date.now()-(CL.started||0)<8000)){ classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); return; } // 이미 연결(중)이면 이름만 갱신
   classConnect(code);
 }
 function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
 function classConnect(code){
   if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
-  classDisconnect(); CL.code=code;
+  classDisconnect(); CL.code=code; CL.started=Date.now();
   setClassState('수업에 연결하는 중…');
-  const p=new Peer({debug:0}); CL.peer=p;
+  const p=new Peer(PEER_OPTS); CL.peer=p;
   const retryLater=(msg)=>{ setClassState(msg); clearTimeout(CL.retry); CL.retry=setTimeout(()=>{ if(CL.code===code) classConnect(code); },6000); };
   p.on('open',()=>{
     const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
@@ -484,7 +524,7 @@ function createRoom(){
   const tryOpen=(attempt)=>{
     const code=String(Math.floor(1000+Math.random()*9000));
     cleanupNet();
-    peer=new Peer(ID_PREFIX+code,{debug:0});
+    peer=new Peer(ID_PREFIX+code,PEER_OPTS);
     connectTimer=setTimeout(()=>{ $('hostBtn').disabled=false; $('hostErr').innerHTML=netFailHTML('연결 서버에 접속하지 못했어요. 학교 와이파이가 막고 있을 수 있어요.'); cleanupNet(); },12000);
     peer.on('open',()=>{
       clearTimeout(connectTimer); $('hostBtn').disabled=false;
@@ -516,7 +556,7 @@ function joinRoom(){
   isHost=false; cleanupNet();
   $('joinBtn').disabled=true; $('joinBtn').textContent='연결하는 중…';
   const fail=(m)=>{ $('joinBtn').disabled=false; $('joinBtn').textContent='들어가기'; $('joinErr').innerHTML=netFailHTML(m); cleanupNet(); };
-  peer=new Peer({debug:0});
+  peer=new Peer(PEER_OPTS);
   connectTimer=setTimeout(()=>fail('연결하지 못했어요. 코드를 다시 확인하거나, 학교 와이파이가 막고 있을 수 있어요.'),15000);
   peer.on('open',()=>{
     conn=peer.connect(ID_PREFIX+code,{reliable:true});
@@ -562,6 +602,7 @@ function onData(d, hostLv){
     case 'guess': if(G) onOppGuess(d); return;
     case 'hint':  if(G) onMyHint(d); return;
     case 'again': if(G){ G.oppAgain=true; if(G.meAgain) restartOnline(); else $('againMsg')&&($('againMsg').textContent=`${G.oppName}님이 한 판 더 하고 싶어해요!`); } return;
+    case 'reveal': if(G&&Array.isArray(d.s)){ G.oppSecret=d.s.map(x=>x|0).slice(0,3).join(''); const el=$('oppSecretShow'); if(el&&G.over) el.textContent=G.oppSecret; } return;
     case 'bye': onPeerGone(); return;
   }
 }
@@ -594,7 +635,8 @@ let guessPad=null;
 function startOnlineGame(){
   const lv=G.lv;
   updateSecretPills();
-  $('oppLogTitle').textContent=`${G.oppName}의 추측`;
+  $('oppLogTitle').innerHTML=`${esc(G.oppName)}의 추측 <span class="muted">내 숫자를 얼마나 맞혀 가는지 보기</span>`;
+  $('gameLvPill').textContent=`난이도 ${lv.name}`;
   $('gameLegend').innerHTML=legendHTML(lv);
   guessPad=makeKeypad($('guessPad'), lv, {okText:'추측하기', onSubmit:v=>submitGuess(v)});
   makeMemo($('memoPad'), lv);
@@ -605,6 +647,7 @@ function submitGuess(v){
   if(G.over) return false;
   const r=R(G.cur);
   if(r.myG) return false;
+  if(G.rounds.some(x=>x.myG && x.myG.join('')===v.join(''))){ toast('이미 추측했던 숫자예요. 다른 숫자를 넣어 보세요'); return false; }
   r.myG=v; send({t:'guess', r:G.cur, g:v});
   renderGame(); return true;
 }
@@ -626,26 +669,44 @@ function checkRound(){
     if(!(r&&r.myH&&r.oppH)) break;
     const iWin=isWin(r.myH,G.lv), theyWin=isWin(r.oppH,G.lv);
     const n=G.cur+1;
-    if(iWin||theyWin||n>=MAX_ROUNDS){ G.over=true; G.result=[iWin,theyWin,n]; renderGame(); showResult(iWin,theyWin,n); return; }
+    if(iWin||theyWin||n>=MAX_ROUNDS){ G.over=true; G.result=[iWin,theyWin,n]; send({t:'reveal', s:mySecret}); renderGame(); showResult(iWin,theyWin,n); return; }
     G.cur++;
+    classStatus(`대전 중 (vs ${G.oppName}) · ${G.cur+1}회`);
   }
   renderGame();
 }
 function renderGame(){
   const lv=G.lv, r=G.rounds[G.cur]||{};
+  const last = MAX_ROUNDS-1;
   $('roundPill').textContent=`${Math.min(G.cur+1,MAX_ROUNDS)}회 / ${MAX_ROUNDS}`;
+  // 두 사람 진행 상태
+  const meDone=!!r.myG, oppDone=!!r.oppG;
+  $('plMe').className='pl'+(meDone&&!G.over?' done':''); $('plOpp').className='pl'+(oppDone&&!G.over?' done':'');
+  $('plMe').innerHTML=`${esc(myName())}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
+  $('plOpp').innerHTML=`${esc(G.oppName)}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
   const st=$('gameStatus');
   if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">결과 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
-  else if(!r.myG){ st.textContent=`${G.cur+1}회: 추측할 숫자를 입력하세요`; st.className='status'; guessPad&&guessPad.setDisabled(false); }
+  else if(!meDone){
+    st.textContent = oppDone ? `⏱ ${G.oppName}님은 벌써 냈어요!` : (G.cur===last ? '마지막 회! 신중하게 고르세요' : `${G.cur+1}회: 추측할 숫자를 입력하세요`);
+    st.className='status'; guessPad&&guessPad.setDisabled(false);
+  }
   else { st.textContent=`${G.oppName}님을 기다리는 중…`; st.className='status wait'; guessPad&&guessPad.setDisabled(true); }
-  // 내 추측: 둘 다 낸 회만 결과 공개 (동시 공개)
+  // 방금 끝난 회의 결과를 크게
+  const li = G.over ? G.cur : G.cur-1, lr=G.rounds[li];
+  if(lr && lr.myH && lr.oppH){
+    $('lastRes').style.display='block';
+    $('lastRes').innerHTML=`<div class="lr-title">${li+1}회 결과</div>
+      <div class="lr-main"><span class="g">${lr.myG.join('')}</span>${hintHTML(lr.myH,lv)}</div>
+      <div class="lr-opp">${esc(G.oppName)}의 추측 <b>${lr.oppG.join('')}</b> ${hintHTML(lr.oppH,lv)}</div>`;
+  } else $('lastRes').style.display='none';
+  // 기록: 둘 다 낸 회만 결과 공개 (동시 공개)
   const mine=[], theirs=[];
   G.rounds.forEach((x,i)=>{
-    const done = x.myH && x.oppH;
-    if(x.myG) mine.push(`<li><span class="n">${i+1}</span><span class="g">${x.myG.join('')}</span>${done?hintHTML(x.myH,lv):'<span class="muted">대기</span>'}</li>`);
+    const done = x.myH && x.oppH, cls = i===li ? ' class="latest"' : '';
+    if(x.myG) mine.push(`<li${cls}><span class="n">${i+1}</span><span class="g">${x.myG.join('')}</span>${done?hintHTML(x.myH,lv):'<span class="muted">결과 대기</span>'}</li>`);
     if(x.oppG && (done || G.over)) theirs.push(`<li><span class="n">${i+1}</span><span class="g">${x.oppG.join('')}</span>${hintHTML(x.oppH,lv)}</li>`);
   });
-  $('myLog').innerHTML = mine.reverse().join('') || '<li class="empty">아직 없어요</li>';
+  $('myLog').innerHTML = mine.reverse().join('') || '<li class="empty">아직 없어요. 첫 추측을 해 보세요!</li>';
   $('oppLog').innerHTML = theirs.reverse().join('') || '<li class="empty">아직 없어요</li>';
 }
 function showResult(iWin, theyWin, n){
@@ -657,7 +718,7 @@ function showResult(iWin, theyWin, n){
   G.meAgain=false;
   if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome: iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw', rounds:n, level:G.lv.name}); classStatus(`경기 끝 (vs ${G.oppName})`); }
   showOverlay(`<p class="muted">${esc(myName())} VS ${esc(G.oppName)}</p><div class="result-title">${title}</div><p>${msg}</p>
-    <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b></p>
+    <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b> · ${esc(G.oppName)}의 숫자 <b id="oppSecretShow" style="color:var(--yellow);font-size:22px">${G.oppSecret||'…'}</b></p>
     <p class="muted" id="againMsg" style="margin-top:12px;min-height:20px">${G.oppAgain?`${esc(G.oppName)}님이 한 판 더 하고 싶어해요!`:''}</p>
     <button class="btn-y btn-full" onclick="askAgain(this)">한 판 더!</button>
     <button class="btn-ghost btn-full" onclick="hideOverlay()">기록 보기</button>
@@ -668,6 +729,10 @@ function askAgain(btn){
   if(G.oppAgain) restartOnline(); else { btn.disabled=true; btn.textContent=`${G.oppName}님을 기다리는 중…`; }
 }
 $('joinCode').addEventListener('keydown',e=>{ if(e.key==='Enter') joinRoom(); });
+$('joinCode').addEventListener('input',e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,4); if(e.target.value.length===4 && !$('joinBtn').disabled) joinRoom(); });
+$('classCode').addEventListener('input',e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,4); if(e.target.value.length===4 && $('myName').value.trim()) classJoinClick(); });
+$('homeLegend').innerHTML=legendHTML(LEVELS.mid);
+$('exHint').innerHTML=hintHTML(judge([3,5,2],[3,2,5],LEVELS.mid),LEVELS.mid);
 window.addEventListener('beforeunload',()=>{ send({t:'bye'}); });
 
 /* =========================================================
@@ -691,7 +756,9 @@ function startOffline(lv, secret){
     $('judgeResult').innerHTML=`<p class="muted">상대의 ${n}번째 추측</p><div class="g">${v.join('')}</div>${hintHTML(h,lv)}${win?`<div class="result-title" style="margin-top:10px">정답!</div><p>상대가 ${n}번 만에 맞혔어요</p>`:''}`;
     renderOff(); return true;
   }});
-  recordPad=makeKeypad($('recordPad'), lv, {okText:'다음: 결과 입력', onSubmit:v=>{ beginRecord(v); return true; }});
+  recordPad=makeKeypad($('recordPad'), lv, {okText:'다음: 결과 입력', onSubmit:v=>{
+    if(OFF.records.some(x=>x.g.join('')===v.join(''))){ toast('이미 추측했던 숫자예요'); return false; }
+    beginRecord(v); return true; }});
   makeMemo($('offMemoPad'), lv);
   $('recordHint').style.display='none';
   offTab('judge'); renderOff(); go('offPlay');
@@ -715,7 +782,7 @@ function renderRecordInput(){
       <div class="stepper"><button onclick="stepSB('s',-1)">−</button><span style="color:var(--yellow)">${h.s} S</span><button onclick="stepSB('s',1)">+</button></div>
       <div class="stepper"><button onclick="stepSB('b',-1)">−</button><span style="color:#7fb3ff">${h.b} B</span><button onclick="stepSB('b',1)">+</button></div>`;
   } else {
-    box.innerHTML=`<p class="center muted">각 숫자 아래 동그라미를 눌러 ○ → △ → × 로 바꾸세요</p>
+    box.innerHTML=`<p class="center muted">각 숫자 아래 버튼을 눌러 상대 기기에 나온 모양과 똑같이 맞추세요</p>
       <div class="pick">${pendingRec.g.map(d=>`<div class="center" style="font-family:'Black Han Sans';font-size:32px;width:64px">${d}</div>`).join('')}</div>
       <div class="pick">${pendingRec.h.map((x,i)=>`<button class="${x}" onclick="cycleRec(${i})">${SYM[x]}</button>`).join('')}</div>`;
   }

@@ -51,6 +51,15 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
 .overlay.on{display:flex}
 .overlay .card{max-width:380px;text-align:center}
 .err{color:#ffb4a2;margin-top:8px;font-size:15px}
+.seg{display:inline-flex;background:#0b1f14;border:2px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{background:transparent;color:var(--chalk);padding:6px 14px;font-size:15px;border-radius:9px}
+.seg button.sel{background:var(--yellow);color:var(--board)}
+.big{position:fixed;inset:0;background:var(--field);z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}
+.big.on{display:flex}
+.big .bc{font-family:"Black Han Sans";font-size:min(34vw,320px);letter-spacing:.12em;color:var(--yellow);line-height:1}
+.big .bl{font-size:min(3.6vw,34px);margin-top:20px;word-break:break-all;opacity:.95}
+.big .bt{font-family:"Black Han Sans";font-size:min(6vw,56px)}
+.big .bn{font-size:min(3vw,26px);margin-top:16px;opacity:.85}
 @media (max-width:860px){.top,.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -66,7 +75,7 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
       <h2>수업 코드</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-end">
         <div class="code" id="codeShow">····</div>
-        <button class="btn-ghost" onclick="askNewCode()">새 코드 만들기</button>
+        <div class="row"><button class="btn-y" onclick="bigCode()">📺 크게 보기</button><button class="btn-ghost" onclick="askNewCode()">새 코드 만들기</button></div>
       </div>
       <div class="link" id="linkShow"></div>
       <div class="row">
@@ -97,6 +106,7 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
     <div class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:6px">
         <h2 style="margin:0">학생별 전적</h2>
+        <div class="seg" id="rangeSeg"><button class="sel" data-r="today">오늘</button><button data-r="all">전체</button></div>
         <div class="row">
           <button class="btn-ghost" onclick="downloadCSV()">CSV 내려받기</button>
           <button class="btn-ghost" onclick="askClear()">기록 지우기</button>
@@ -114,10 +124,19 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
   </div>
 </div>
 
+<div class="big" id="bigView" onclick="this.classList.remove('on')">
+  <div class="bt">숫자 야구 대전 · 수업 코드</div>
+  <div class="bc" id="bigCodeShow"></div>
+  <div class="bl" id="bigLinkShow"></div>
+  <div class="bn" id="bigCount"></div>
+  <p class="muted" style="margin-top:24px">화면을 누르면 닫혀요</p>
+</div>
 <div class="overlay" id="overlay"><div class="card" id="ovCard"></div></div>
 
 <script>
 const ID_PREFIX='kgg-numbaseball-v1-';
+const PEER_OPTS={debug:0, config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]}};
+let range='today';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
@@ -142,7 +161,7 @@ function openPeer(attempt=0){
   try{ peer&&peer.destroy(); }catch(e){}
   if(typeof Peer==='undefined'){ $('connBadge').textContent='연결 프로그램을 불러오지 못함'; $('peerErr').textContent='인터넷 연결을 확인하고 새로고침해 주세요.'; return; }
   $('peerErr').textContent=''; $('connBadge').textContent='연결 준비 중…';
-  peer=new Peer(ID_PREFIX+'class-'+code,{debug:0});
+  peer=new Peer(ID_PREFIX+'class-'+code,PEER_OPTS);
   peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'; $('connBadge').style.color='#5ee08a'; });
   peer.on('connection',c=>{
     c._key='tmp-'+c.peer;   // 학생이 기기 번호(hi)를 보내기 전 임시 이름
@@ -224,15 +243,17 @@ function toggleOffline(){
   $('offInfo').textContent= offlineAllowed ? '허용됨 · 연결된 학생들이 쓸 수 있어요 (3시간 유지)' : '잠금 · 학생들이 쓸 수 없어요';
 }
 function renderStudents(){
-  const arr=[...students.values()].sort((a,b)=> (b.online-a.online) || a.name.localeCompare(b.name,'ko'));
+  const arr=[...students.values()].filter(s=>s.dev).sort((a,b)=> (b.online-a.online) || a.name.localeCompare(b.name,'ko'));
   const on=arr.filter(s=>s.online).length;
-  $('stuCount').textContent=on+'명'; $('pauseInfo').textContent=`연결된 학생 ${on}명`;
+  $('stuCount').textContent=on+'명'; $('pauseInfo').textContent=`연결된 학생 ${on}명`; $('bigCount').textContent=`지금 연결된 학생 ${on}명`;
   $('stuList').innerHTML = arr.length ? arr.map(s=>`<li class="${s.online?'':'off'}"><span class="dot ${s.online?'on':''}"></span><span class="nm">${esc(s.name)}</span><span class="st">${s.online?esc(s.status):'연결 끊김'}</span></li>`).join('') : '<li class="empty">아직 연결된 학생이 없어요</li>';
 }
+function startOfToday(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function shown(){ return range==='today' ? records.filter(r=>r.time>=startOfToday()) : records; }
 function stats(){
   const m=new Map();
   const get=n=>{ if(!m.has(n)) m.set(n,{name:n,g:0,w:0,d:0,l:0,wr:0}); return m.get(n); };
-  for(const r of records){
+  for(const r of shown()){
     const A=get(r.a), B=get(r.b); A.g++; B.g++;
     if(!r.winner){ A.d++; B.d++; }
     else { const W=r.winner===r.a?A:B, L=r.winner===r.a?B:A; W.w++; L.l++; W.wr+=r.rounds; }
@@ -246,8 +267,9 @@ function renderRecords(){
     const rate=s.g?Math.round(s.w/s.g*100)+'%':'-'; const avg=s.w?(s.wr/s.w).toFixed(1):'-';
     return `<tr class="${rank===1?'rank1':''}"><td>${rank}</td><td>${esc(s.name)}</td><td class="num">${s.g}</td><td class="num">${s.w}</td><td class="num">${s.d}</td><td class="num">${s.l}</td><td class="num">${rate}</td><td class="num">${avg}</td></tr>`; }).join('')
     : '<tr><td colspan="8" class="empty">아직 기록이 없어요</td></tr>';
-  $('gameCount').textContent=records.length+'경기';
-  $('gameBody').innerHTML = records.length ? records.slice().reverse().map(r=>{
+  const rs=shown();
+  $('gameCount').textContent=rs.length+'경기'+(range==='today'?' (오늘)':' (전체)');
+  $('gameBody').innerHTML = rs.length ? rs.slice().reverse().map(r=>{
     const t=new Date(r.time); const hh=String(t.getHours()).padStart(2,'0'), mm=String(t.getMinutes()).padStart(2,'0');
     const res = r.winner ? `<span class="win">${esc(r.winner)} 승</span>` : '<span class="draw">무승부</span>';
     return `<tr><td>${t.getMonth()+1}/${t.getDate()} ${hh}:${mm}</td><td>${esc(r.a)} vs ${esc(r.b)}</td><td>${res}</td><td>${esc(r.level)}</td><td class="num">${r.rounds}</td></tr>`; }).join('')
@@ -257,17 +279,17 @@ function renderRecords(){
 function csvCell(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function downloadCSV(){
   const lines=[['시각','학생1','학생2','결과','난이도','회']];
-  for(const r of records){ const t=new Date(r.time); lines.push([t.toLocaleString('ko-KR'),r.a,r.b,r.winner?r.winner+' 승':'무승부',r.level,r.rounds]); }
+  for(const r of shown()){ const t=new Date(r.time); lines.push([t.toLocaleString('ko-KR'),r.a,r.b,r.winner?r.winner+' 승':'무승부',r.level,r.rounds]); }
   lines.push([]); lines.push(['이름','경기','승','무','패','승률(%)']);
   for(const s of stats()) lines.push([s.name,s.g,s.w,s.d,s.l,s.g?Math.round(s.w/s.g*100):0]);
   const blob=new Blob(['﻿'+lines.map(l=>l.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); const d=new Date();
-  a.href=URL.createObjectURL(blob); a.download=`숫자야구_전적_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+  a.href=URL.createObjectURL(blob); a.download=`숫자야구_전적_${range==='today'?'오늘':'전체'}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 function ov(html){ $('ovCard').innerHTML=html; $('overlay').classList.add('on'); }
 function ovClose(){ $('overlay').classList.remove('on'); }
-function askClear(){ ov(`<h2 style="justify-content:center">기록을 모두 지울까요?</h2><p class="muted">지운 기록은 되돌릴 수 없어요. 필요하면 먼저 CSV로 내려받으세요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="ovClose()">취소</button><button class="btn-r" onclick="records=[];LS.set('nb-t-records',records);renderRecords();ovClose()">모두 지우기</button></div>`); }
+function askClear(){ ov(`<h2 style="justify-content:center">지난 기록까지 모두 지울까요?</h2><p class="muted">지운 기록은 되돌릴 수 없어요. 필요하면 먼저 CSV로 내려받으세요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="ovClose()">취소</button><button class="btn-r" onclick="records=[];LS.set('nb-t-records',records);renderRecords();ovClose()">모두 지우기</button></div>`); }
 function askNewCode(){ ov(`<h2 style="justify-content:center">새 수업 코드를 만들까요?</h2><p class="muted">지금 연결된 학생들은 끊어지고, 새 코드로 다시 연결해야 해요. 기록은 그대로 남아요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="ovClose()">취소</button><button class="btn-y" onclick="changeCode()">새 코드 만들기</button></div>`); }
 function changeCode(){ ovClose(); code=newCode(); LS.set('nb-t-code',code); students.clear(); renderStudents(); showCode(); openPeer(); }
 async function copyLink(){
@@ -276,6 +298,9 @@ async function copyLink(){
 }
 $('pauseMsg').addEventListener('change',()=>{ if(paused){ paused=!paused; togglePause(); } });
 
+function bigCode(){ $('bigCodeShow').textContent=code; $('bigLinkShow').textContent=studentURL(); $('bigView').classList.add('on'); }
+document.querySelectorAll('#rangeSeg button').forEach(b=>b.onclick=()=>{ range=b.dataset.r; document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('sel',x===b)); renderRecords(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('bigView').classList.remove('on'); ovClose(); } });
 showCode(); renderStudents(); renderRecords(); openPeer();
 </script>
 </body>
