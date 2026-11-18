@@ -82,6 +82,10 @@ tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
       <input type="text" id="pauseMsg" maxlength="40" value="선생님을 봐 주세요 👀">
       <button class="pausebtn btn-y" id="pauseBtn" onclick="togglePause()">✋ 모든 학생 화면 멈추기</button>
       <p class="muted" style="margin-top:8px" id="pauseInfo">연결된 학생 0명</p>
+      <div class="row" style="justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
+        <div><b>인터넷 없이 하기</b><br><span class="muted" id="offInfo">잠금 · 학생들이 쓸 수 없어요</span></div>
+        <button class="btn-ghost" id="offBtn" onclick="toggleOffline()">🔓 허용하기</button>
+      </div>
     </div>
   </div>
 
@@ -121,6 +125,7 @@ const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.par
 let code=LS.get('nb-t-code',null);
 let records=LS.get('nb-t-records',[]);   // {gid,time,a,b,winner,rounds,level}
 let paused=false;
+let offlineAllowed=false;
 const students=new Map(); // key: conn peer id -> {conn,name,dev,status,online}
 let peer=null;
 
@@ -143,6 +148,7 @@ function openPeer(attempt=0){
     c.on('open',()=>{
       students.set(c.peer,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true});
       c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
+      c.send({t:'offline',on:offlineAllowed});
       renderStudents();
     });
     c.on('data',d=>onData(c,d));
@@ -192,6 +198,13 @@ function togglePause(){
   b.textContent= paused ? '▶ 다시 시작하기 (지금 멈춘 상태)' : '✋ 모든 학생 화면 멈추기';
 }
 
+function toggleOffline(){
+  offlineAllowed=!offlineAllowed;
+  for(const s of students.values()){ if(s.online) try{ s.conn.send({t:'offline',on:offlineAllowed}); }catch(e){} }
+  $('offBtn').textContent= offlineAllowed ? '🔒 다시 잠그기' : '🔓 허용하기';
+  $('offBtn').className = offlineAllowed ? 'btn-y' : 'btn-ghost';
+  $('offInfo').textContent= offlineAllowed ? '허용됨 · 연결된 학생들이 쓸 수 있어요 (3시간 유지)' : '잠금 · 학생들이 쓸 수 없어요';
+}
 function renderStudents(){
   const arr=[...students.values()].sort((a,b)=> (b.online-a.online) || a.name.localeCompare(b.name,'ko'));
   const on=arr.filter(s=>s.online).length;

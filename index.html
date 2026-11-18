@@ -120,20 +120,20 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
       <input type="text" id="classCode" class="code" style="font-size:28px;letter-spacing:8px;flex:2" inputmode="numeric" maxlength="4" placeholder="0000">
       <button class="btn-y" style="flex:1" onclick="classJoinClick()">연결</button>
     </div>
-    <p id="classState" class="muted" style="margin-top:8px">수업에 연결되지 않았어요 (혼자 연습할 때는 비워도 돼요)</p>
+    <p id="classState" class="muted" style="margin-top:8px">이름과 수업 코드를 넣고 [연결]을 눌러야 게임을 할 수 있어요</p>
   </div>
   <div class="card">
     <h2>온라인 대전</h2>
     <p class="note">각자 자기 기기로 접속해서 방 코드로 연결해요.</p>
     <div class="row" style="margin-top:12px">
-      <button class="btn-y" onclick="go('host')">방 만들기</button>
-      <button onclick="go('join')">방 들어가기</button>
+      <button class="btn-y needs-class" onclick="go('host')">방 만들기</button>
+      <button class="needs-class" onclick="go('join')">방 들어가기</button>
     </div>
   </div>
   <div class="card">
     <h2>인터넷 없이 하기</h2>
     <p class="note">각자 기기에 비밀 숫자를 넣고, 상대가 <b>말로 부른 숫자</b>를 내 기기에 입력하면 기기가 판정해 줘요.</p>
-    <button class="btn-ghost btn-full" onclick="go('offSetup')">인터넷 없이 시작</button>
+    <button class="btn-ghost btn-full" id="offBtn" onclick="go('offSetup')">🔒 선생님이 허용하면 열려요</button>
   </div>
   <div class="card">
     <h2>규칙</h2>
@@ -264,6 +264,9 @@ label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
 
 <div class="overlay" id="overlay"><div class="card" id="overlayCard"></div></div>
 <div class="toast" id="toast"></div>
+<div class="overlay" id="gateOv" style="z-index:25;background:rgba(10,20,15,.96)">
+  <div class="card center"><div style="font-size:64px">🔌</div><h2>선생님과 연결이 끊겼어요</h2><p class="note">다시 연결하는 중이에요. 잠시 기다려 주세요.</p><button class="btn-ghost btn-full" onclick="leaveToHome()">처음 화면으로</button></div>
+</div>
 <div class="overlay" id="pauseOv" style="z-index:30;background:rgba(10,20,15,.97)">
   <div class="center"><div style="font-size:90px">✋</div><div class="result-title" style="font-size:46px">잠깐 멈춤!</div><p id="pauseMsg" style="font-size:22px;margin-top:8px">선생님을 봐 주세요</p></div>
 </div>
@@ -319,7 +322,7 @@ function classJoinClick(){
   try{ localStorage.setItem('nb-name',$('myName').value.trim()); localStorage.setItem('nb-class',code);}catch(e){}
   classConnect(code);
 }
-function classDisconnect(){ clearTimeout(CL.retry); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
+function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
 function classConnect(code){
   if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
   classDisconnect(); CL.code=code;
@@ -328,9 +331,9 @@ function classConnect(code){
   const retryLater=(msg)=>{ setClassState(msg); clearTimeout(CL.retry); CL.retry=setTimeout(()=>{ if(CL.code===code) classConnect(code); },6000); };
   p.on('open',()=>{
     const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
-    c.on('open',()=>{ setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); });
-    c.on('data',d=>{ if(d&&d.t==='pause') setPause(!!d.on, d.msg); });
-    c.on('close',()=>{ setPause(false); if(CL.conn===c) retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
+    c.on('open',()=>{ CL.connected=true; setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate(); });
+    c.on('data',d=>{ if(!d) return; if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on); });
+    c.on('close',()=>{ setPause(false); CL.connected=false; updateGate(); if(CL.conn===c) retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
   p.on('error',err=>{
     if(err.type==='peer-unavailable'){ setPause(false); retryLater(`수업 ${code}을(를) 찾지 못했어요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`); return; }
@@ -339,17 +342,43 @@ function classConnect(code){
 }
 function classSend(o){ try{ CL.conn&&CL.conn.open&&CL.conn.send(o); }catch(e){} }
 function classStatus(s){ CL.status=s; classSend({t:'status', status:s, name:myName()}); }
+/* 수업 연결 잠금 + 인터넷 없이 하기 허용 */
+CL.connected=false;
+CL.offlineAllowed=(()=>{ try{ return +localStorage.getItem('nb-off-until')>Date.now(); }catch(e){ return false; } })();
+let gateTimer=null;
+function inOffline(){ return $('offSetup').classList.contains('on')||$('offPlay').classList.contains('on'); }
+function updateGate(){
+  document.querySelectorAll('.needs-class').forEach(b=>b.disabled=!CL.connected);
+  const ob=$('offBtn'); ob.disabled=!CL.offlineAllowed; ob.textContent=CL.offlineAllowed?'인터넷 없이 시작':'🔒 선생님이 허용하면 열려요';
+  // 연결이 끊기면 3초 뒤 화면을 막음 (허용된 인터넷 없이 하기는 예외)
+  const block = !CL.connected && !$('home').classList.contains('on') && !(inOffline()&&CL.offlineAllowed);
+  clearTimeout(gateTimer);
+  if(!block) $('gateOv').classList.remove('on');
+  else if(!$('gateOv').classList.contains('on')) gateTimer=setTimeout(()=>{ if(!CL.connected && !$('home').classList.contains('on') && !(inOffline()&&CL.offlineAllowed)) $('gateOv').classList.add('on'); },3000);
+}
+function setOfflineAllowed(on){
+  const was=CL.offlineAllowed; CL.offlineAllowed=on;
+  try{ if(on) localStorage.setItem('nb-off-until', String(Date.now()+3*3600*1000)); else localStorage.removeItem('nb-off-until'); }catch(e){}
+  if(was&&!on&&inOffline()){ OFF=null; leaveToHome(); toast('선생님이 "인터넷 없이 하기"를 잠갔어요'); }
+  else if(!was&&on) toast('선생님이 "인터넷 없이 하기"를 열어 줬어요');
+  updateGate();
+}
 function setPause(on,msg){ CL.paused=on; $('pauseOv').classList.toggle('on',on); if(msg) $('pauseMsg').textContent=msg; }
 $('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}));
 (function initClass(){
   let code=null;
   try{ const q=new URLSearchParams(location.search).get('c'); if(q&&/^\d{4}$/.test(q)) code=q; }catch(e){}
   if(!code){ try{ code=localStorage.getItem('nb-class'); }catch(e){} }
+  updateGate();
   if(code){ $('classCode').value=code; if($('myName').value.trim()) setTimeout(()=>classConnect(code),300); else setClassState('이름을 입력하고 [연결]을 누르세요.'); }
 })();
 
 /* ---------- 화면 전환 ---------- */
-function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); window.scrollTo(0,0);
+function go(id){
+  const offId = id==='offSetup'||id==='offPlay';
+  if(offId && !CL.offlineAllowed){ toast('선생님이 허용해야 열려요'); return; }
+  if(id!=='home' && !offId && !CL.connected){ toast('먼저 수업 코드로 연결하세요'); id='home'; }
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); window.scrollTo(0,0); setTimeout(updateGate,0);
   if(id==='home') classStatus('대기 중'); if(id==='wait') classStatus('방 만들고 기다리는 중'); if(id==='offSetup') classStatus('인터넷 없이 하기 준비');
   if(id==='offSetup') buildOffSecret();
   if(id==='join') setTimeout(()=>$('joinCode').focus(),50);
