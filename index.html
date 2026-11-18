@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>숫자 야구 대전</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --field:#1f5d3a; --field-dark:#16452b; --board:#0f2a1c; --chalk:#f6f3e8;
+  --yellow:#ffd23f; --red:#e4572e; --blue:#3a86ff; --gray:#8a9a90; --line:rgba(246,243,232,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:"Noto Sans KR",system-ui,sans-serif;background:var(--field);color:var(--chalk);
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 60px,transparent 60px 120px);
+  min-height:100%;}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 40px}
+h1{font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:44px;letter-spacing:1px;text-align:center;margin:18px 0 4px}
+h1 span{color:var(--yellow)}
+.sub{text-align:center;opacity:.8;margin-bottom:20px}
+h2{font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:26px;margin:4px 0 12px}
+.card{background:var(--board);border:2px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.screen{display:none}.screen.on{display:block}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-weight:700;font-size:18px;padding:14px 16px;color:var(--board);background:var(--chalk);transition:transform .05s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.35;cursor:default}
+.btn-y{background:var(--yellow)}
+.btn-r{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--chalk);border:2px solid var(--line)}
+.btn-full{width:100%;margin-top:10px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+input[type=text]{width:100%;font:inherit;font-size:20px;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:#0b1f14;color:var(--chalk)}
+input.code{font-family:"Black Han Sans";font-size:40px;text-align:center;letter-spacing:12px}
+label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.lv{background:#0b1f14;color:var(--chalk);border:2px solid var(--line);padding:12px 6px;line-height:1.3}
+.lv b{display:block;font-family:"Black Han Sans";font-weight:400;font-size:28px}
+.lv small{font-size:12px;opacity:.8;font-weight:400}
+.lv.sel{border-color:var(--yellow);background:#2a2a10}
+.bigcode{font-family:"Black Han Sans";font-size:72px;letter-spacing:14px;text-align:center;color:var(--yellow);margin:6px 0}
+.center{text-align:center}
+.muted{opacity:.7;font-size:14px}
+.note{font-size:14px;line-height:1.6;opacity:.85}
+.err{color:#ffb4a2;font-size:15px;margin-top:10px;line-height:1.5}
+/* keypad */
+.slots{display:flex;justify-content:center;gap:10px;margin:8px 0 14px}
+.slot{width:64px;height:76px;border-radius:12px;background:#0b1f14;border:3px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:"Black Han Sans";font-size:46px;color:var(--yellow)}
+.slot.cur{border-color:var(--yellow)}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.key{font-family:"Black Han Sans";font-weight:400;font-size:30px;padding:10px 0}
+.key.used{opacity:.25}
+#memoPad .key,#offMemoPad .key{font-size:22px;padding:6px 0;background:#0b1f14;color:var(--chalk);border:2px dashed var(--line)}
+#memoPad .key.memo-x,#offMemoPad .key.memo-x{color:#5d6b63;text-decoration:line-through;border-style:solid;border-color:#33413a}
+#memoPad .key.memo-o,#offMemoPad .key.memo-o{color:var(--yellow);border:3px solid var(--yellow)}
+.kp-actions{display:flex;gap:8px;margin-top:8px}
+.kp-actions button{flex:1}
+/* hints */
+.hint{display:inline-flex;gap:6px}
+.h{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;line-height:1}
+.h.O{background:var(--yellow);color:var(--board)}
+.h.A{background:var(--blue);color:#fff}
+.h.X{background:#3c4a42;color:#9fb0a6}
+.sb{font-family:"Black Han Sans";font-size:24px}
+.sb .s{color:var(--yellow)}.sb .b{color:#7fb3ff}.sb .out{color:#ff8c6b}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:14px;margin:4px 0 10px;opacity:.9}
+.legend .h{width:24px;height:24px;font-size:15px;margin-right:4px;vertical-align:middle}
+/* game */
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.pill{background:var(--board);border:2px solid var(--line);border-radius:999px;padding:6px 14px;font-size:15px}
+.secret-box{cursor:pointer;user-select:none}
+.status{text-align:center;font-family:"Black Han Sans";font-size:24px;margin:2px 0 10px;min-height:32px}
+.status.wait{color:#bcd;opacity:.8}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.log{list-style:none}
+.log li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 4px;border-bottom:1px dashed var(--line)}
+.log li .n{font-size:13px;opacity:.6;width:22px}
+.log li .g{font-family:"Black Han Sans";font-size:28px;letter-spacing:4px;flex:1}
+.log.small li .g{font-size:22px;letter-spacing:2px}
+.log.small .h{width:24px;height:24px;font-size:15px}
+.log.small .sb{font-size:18px}
+.empty{opacity:.5;font-size:14px;padding:8px 0}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;background:#0b1f14;color:var(--chalk);border:2px solid var(--line);font-size:16px}
+.tabs button.sel{background:var(--yellow);color:var(--board);border-color:var(--yellow)}
+.bigresult{text-align:center;padding:16px 0}
+.bigresult .hint{gap:12px}.bigresult .h{width:72px;height:72px;font-size:46px}
+.bigresult .sb{font-size:54px}
+.bigresult .g{font-family:"Black Han Sans";font-size:40px;letter-spacing:8px;margin-bottom:8px}
+.pick{display:flex;justify-content:center;gap:10px;margin:8px 0}
+.pick button{width:64px;height:64px;border-radius:50%;font-size:30px;padding:0}
+.pick button.O{background:var(--yellow)}.pick button.A{background:var(--blue);color:#fff}.pick button.X{background:#3c4a42;color:#9fb0a6}
+.stepper{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}
+.stepper button{width:48px;height:48px;padding:0;font-size:24px}
+.stepper span{font-family:"Black Han Sans";font-size:34px;min-width:80px;text-align:center}
+/* overlay */
+.overlay{position:fixed;inset:0;background:rgba(5,15,10,.85);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.overlay.on{display:flex}
+.overlay .card{max-width:420px;width:100%;text-align:center}
+.result-title{font-family:"Black Han Sans";font-size:56px;color:var(--yellow);margin:6px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;display:none;z-index:20;max-width:90%;text-align:center}
+.toast.on{display:block}
+@media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HOME -->
+<section id="home" class="screen on">
+  <h1>숫자 야구 <span>대전</span></h1>
+  <p class="sub">상대의 비밀 숫자를 먼저 맞혀라!</p>
+  <div class="card">
+    <label class="small" for="myName">내 이름 (또는 모둠 이름)</label>
+    <input type="text" id="myName" maxlength="10" placeholder="예: 김민수">
+    <label class="small" for="classCode">수업 코드 (선생님이 알려 준 4자리)</label>
+    <div class="row" style="align-items:center">
+      <input type="text" id="classCode" class="code" style="font-size:28px;letter-spacing:8px;flex:2" inputmode="numeric" maxlength="4" placeholder="0000">
+      <button class="btn-y" style="flex:1" onclick="classJoinClick()">연결</button>
+    </div>
+    <p id="classState" class="muted" style="margin-top:8px">수업에 연결되지 않았어요 (혼자 연습할 때는 비워도 돼요)</p>
+  </div>
+  <div class="card">
+    <h2>온라인 대전</h2>
+    <p class="note">각자 자기 기기로 접속해서 방 코드로 연결해요.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn-y" onclick="go('host')">방 만들기</button>
+      <button onclick="go('join')">방 들어가기</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>인터넷 없이 하기</h2>
+    <p class="note">각자 기기에 비밀 숫자를 넣고, 상대가 <b>말로 부른 숫자</b>를 내 기기에 입력하면 기기가 판정해 줘요.</p>
+    <button class="btn-ghost btn-full" onclick="go('offSetup')">인터넷 없이 시작</button>
+  </div>
+  <div class="card">
+    <h2>규칙</h2>
+    <div class="legend"><span><i class="h O">○</i>숫자·자리 모두 맞음</span><span><i class="h A">△</i>숫자는 있는데 자리가 다름</span><span><i class="h X">×</i>없는 숫자</span></div>
+    <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 결과가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>상</b> 단계는 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
+  </div>
+</section>
+
+<!-- HOST -->
+<section id="host" class="screen">
+  <h2>방 만들기</h2>
+  <div class="card">
+    <label class="small">난이도 고르기</label>
+    <div class="levels" data-group="host"></div>
+    <button class="btn-y btn-full" id="hostBtn" onclick="createRoom()">방 만들기</button>
+    <div id="hostErr" class="err"></div>
+  </div>
+  <button class="btn-ghost btn-full" onclick="leaveToHome()">처음으로</button>
+</section>
+
+<!-- WAIT -->
+<section id="wait" class="screen">
+  <div class="card center">
+    <p class="muted">상대에게 이 코드를 알려 주세요</p>
+    <div class="bigcode" id="codeShow">····</div>
+    <p id="waitLevel" class="muted"></p>
+    <p class="status wait" style="margin-top:14px" id="waitMsg">상대를 기다리는 중…</p>
+    <div id="waitErr" class="err"></div>
+  </div>
+  <button class="btn-ghost btn-full" onclick="leaveToHome()">취소</button>
+</section>
+
+<!-- JOIN -->
+<section id="join" class="screen">
+  <h2>방 들어가기</h2>
+  <div class="card">
+    <label class="small" for="joinCode">방 코드 4자리</label>
+    <input type="text" id="joinCode" class="code" inputmode="numeric" maxlength="4" placeholder="0000">
+    <button class="btn-y btn-full" id="joinBtn" onclick="joinRoom()">들어가기</button>
+    <div id="joinErr" class="err"></div>
+  </div>
+  <button class="btn-ghost btn-full" onclick="leaveToHome()">처음으로</button>
+</section>
+
+<!-- SECRET (online) -->
+<section id="secret" class="screen">
+  <div class="topbar"><span class="pill" id="vsPill">VS</span><span class="pill" id="lvPill"></span></div>
+  <div class="card">
+    <h2 class="center">내 비밀 숫자 정하기</h2>
+    <p class="center muted" id="secretRule"></p>
+    <div id="secretPad"></div>
+    <p class="center status wait" id="secretWait" style="margin-top:12px"></p>
+  </div>
+</section>
+
+<!-- GAME (online) -->
+<section id="game" class="screen">
+  <div class="topbar">
+    <span class="pill" id="roundPill">1회</span>
+    <span class="pill secret-box" id="mySecretPill" onclick="toggleSecret()">내 숫자: ●●● 👁</span>
+  </div>
+  <div class="status" id="gameStatus">추측할 숫자를 입력하세요</div>
+  <div class="card">
+    <div id="guessPad"></div>
+    <p class="center muted" style="margin-top:10px">메모: 아래 버튼을 누를 때마다 <b>지움 → 있음 → 원래대로</b></p>
+    <div id="memoPad" class="keys" style="margin-top:8px"></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2 style="font-size:20px">내 추측</h2><ul class="log small" id="myLog"></ul></div>
+    <div class="card"><h2 style="font-size:20px" id="oppLogTitle">상대 추측</h2><ul class="log small" id="oppLog"></ul></div>
+  </div>
+  <div class="legend" id="gameLegend"></div>
+</section>
+
+<!-- OFFLINE SETUP -->
+<section id="offSetup" class="screen">
+  <h2>인터넷 없이 하기</h2>
+  <div class="card">
+    <label class="small">난이도 (상대와 같은 단계로!)</label>
+    <div class="levels" data-group="off"></div>
+  </div>
+  <div class="card">
+    <h2 class="center" style="font-size:22px">내 비밀 숫자 정하기</h2>
+    <p class="center muted">상대가 못 보게 입력하세요</p>
+    <div id="offSecretPad"></div>
+  </div>
+  <button class="btn-ghost btn-full" onclick="leaveToHome()">처음으로</button>
+</section>
+
+<!-- OFFLINE PLAY -->
+<section id="offPlay" class="screen">
+  <div class="topbar">
+    <span class="pill" id="offLvPill"></span>
+    <span class="pill secret-box" id="offSecretPill" onclick="toggleSecret()">내 숫자: ●●● 👁</span>
+  </div>
+  <div class="tabs">
+    <button id="tabJudge" class="sel" onclick="offTab('judge')">상대 추측 판정</button>
+    <button id="tabRecord" onclick="offTab('record')">내 기록지</button>
+  </div>
+  <div id="judgePane">
+    <div class="card">
+      <p class="center muted">상대가 부른 숫자를 입력하고 <b>판정</b>을 누른 뒤 화면을 보여 주세요</p>
+      <div id="judgePad"></div>
+    </div>
+    <div class="card" id="judgeResultCard" style="display:none"><div class="bigresult" id="judgeResult"></div></div>
+    <div class="card"><h2 style="font-size:20px">상대의 추측 기록</h2><ul class="log" id="judgeLog"></ul></div>
+  </div>
+  <div id="recordPane" style="display:none">
+    <div class="card">
+      <p class="center muted">① 내가 부른 숫자 입력 → ② 상대 기기가 보여 준 결과 입력</p>
+      <div id="recordPad"></div>
+      <div id="recordHint" style="display:none">
+        <p class="center" style="margin-top:6px">상대 기기가 보여 준 결과는?</p>
+        <div id="recordHintInput"></div>
+        <button class="btn-y btn-full" onclick="saveRecord()">기록하기</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="center muted">메모: 누를 때마다 <b>지움 → 있음 → 원래대로</b></p>
+      <div id="offMemoPad" class="keys" style="margin-top:8px"></div>
+    </div>
+    <div class="card"><h2 style="font-size:20px">내 추측 기록</h2><ul class="log" id="recordLog"></ul></div>
+  </div>
+  <button class="btn-ghost btn-full" onclick="confirmLeave()">새 게임 / 처음으로</button>
+</section>
+
+</div>
+
+<div class="overlay" id="overlay"><div class="card" id="overlayCard"></div></div>
+<div class="toast" id="toast"></div>
+<div class="overlay" id="pauseOv" style="z-index:30;background:rgba(10,20,15,.97)">
+  <div class="center"><div style="font-size:90px">✋</div><div class="result-title" style="font-size:46px">잠깐 멈춤!</div><p id="pauseMsg" style="font-size:22px;margin-top:8px">선생님을 봐 주세요</p></div>
+</div>
+
+<script>
+/* ---------- 기본 설정 ---------- */
+const LEVELS = {
+  easy:{key:'easy',name:'하',len:2,min:1,max:6,mode:'oxa',desc:'1~6 · 2자리'},
+  mid :{key:'mid', name:'중',len:3,min:1,max:9,mode:'oxa',desc:'1~9 · 3자리'},
+  hard:{key:'hard',name:'상',len:3,min:0,max:9,mode:'sb', desc:'0~9 · 3자리 · S/B'}
+};
+const MAX_ROUNDS = 10;
+const ID_PREFIX = 'kgg-numbaseball-v1-';
+const $ = id => document.getElementById(id);
+let selLevel = {host:'easy', off:'easy'};
+
+function digitsOf(lv){const a=[];for(let d=lv.min;d<=lv.max;d++)a.push(d);return a;}
+function judge(secret, guess, lv){
+  const r = guess.map((g,i)=> g===secret[i]?'O':(secret.includes(g)?'A':'X'));
+  if(lv.mode==='sb') return {s:r.filter(x=>x==='O').length, b:r.filter(x=>x==='A').length};
+  return r;
+}
+function isWin(h, lv){ return lv.mode==='sb' ? h.s===lv.len : h.every(x=>x==='O'); }
+const SYM = {O:'○',A:'△',X:'×'};
+function hintHTML(h, lv){
+  if(h==null) return '<span class="muted">…</span>';
+  if(lv.mode==='sb'){
+    if(h.s===0&&h.b===0) return '<span class="sb"><span class="out">아웃</span></span>';
+    return `<span class="sb">${h.s?`<span class="s">${h.s}S</span> `:''}${h.b?`<span class="b">${h.b}B</span>`:''}</span>`;
+  }
+  return '<span class="hint">'+h.map(x=>`<i class="h ${x}">${SYM[x]}</i>`).join('')+'</span>';
+}
+function legendHTML(lv){
+  if(lv.mode==='sb') return '<span><b style="color:var(--yellow)">S</b> 스트라이크: 숫자·자리 맞음</span><span><b style="color:#7fb3ff">B</b> 볼: 숫자만 맞음</span><span><b style="color:#ff8c6b">아웃</b> 하나도 없음</span>';
+  return '<span><i class="h O">○</i>숫자·자리 맞음</span><span><i class="h A">△</i>숫자만 맞음</span><span><i class="h X">×</i>없는 숫자</span>';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function toast(msg,ms=2600){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),ms);}
+function myName(){ return ($('myName').value.trim()||'나').slice(0,10); }
+try{ const n=localStorage.getItem('nb-name'); if(n) $('myName').value=n; }catch(e){}
+$('myName').addEventListener('change',()=>{try{localStorage.setItem('nb-name',$('myName').value.trim())}catch(e){}});
+
+/* =========================================================
+   수업 연결 (교사용 페이지와 연결: 결과 보고 + 멈춤)
+========================================================= */
+const CL={peer:null, conn:null, code:null, retry:null, status:'대기 중', paused:false};
+let deviceId; try{ deviceId=localStorage.getItem('nb-dev'); if(!deviceId){ deviceId=Math.random().toString(36).slice(2,10); localStorage.setItem('nb-dev',deviceId);} }catch(e){ deviceId=Math.random().toString(36).slice(2,10); }
+function setClassState(t, ok){ const el=$('classState'); el.textContent=t; el.style.color= ok? 'var(--yellow)':''; el.style.opacity= ok?1:''; }
+function classJoinClick(){
+  const code=$('classCode').value.replace(/\D/g,'');
+  if(code.length!==4){ setClassState('수업 코드 4자리를 입력하세요.'); return; }
+  if(!$('myName').value.trim()){ setClassState('먼저 이름을 입력하세요.'); $('myName').focus(); return; }
+  try{ localStorage.setItem('nb-name',$('myName').value.trim()); localStorage.setItem('nb-class',code);}catch(e){}
+  classConnect(code);
+}
+function classDisconnect(){ clearTimeout(CL.retry); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
+function classConnect(code){
+  if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
+  classDisconnect(); CL.code=code;
+  setClassState('수업에 연결하는 중…');
+  const p=new Peer({debug:0}); CL.peer=p;
+  const retryLater=(msg)=>{ setClassState(msg); clearTimeout(CL.retry); CL.retry=setTimeout(()=>{ if(CL.code===code) classConnect(code); },6000); };
+  p.on('open',()=>{
+    const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
+    c.on('open',()=>{ setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); });
+    c.on('data',d=>{ if(d&&d.t==='pause') setPause(!!d.on, d.msg); });
+    c.on('close',()=>{ setPause(false); if(CL.conn===c) retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
+  });
+  p.on('error',err=>{
+    if(err.type==='peer-unavailable'){ setPause(false); retryLater(`수업 ${code}을(를) 찾지 못했어요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`); return; }
+    if(!CL.conn||!CL.conn.open) retryLater('수업 연결 오류. 다시 연결하는 중…');
+  });
+}
+function classSend(o){ try{ CL.conn&&CL.conn.open&&CL.conn.send(o); }catch(e){} }
+function classStatus(s){ CL.status=s; classSend({t:'status', status:s, name:myName()}); }
+function setPause(on,msg){ CL.paused=on; $('pauseOv').classList.toggle('on',on); if(msg) $('pauseMsg').textContent=msg; }
+$('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}));
+(function initClass(){
+  let code=null;
+  try{ const q=new URLSearchParams(location.search).get('c'); if(q&&/^\d{4}$/.test(q)) code=q; }catch(e){}
+  if(!code){ try{ code=localStorage.getItem('nb-class'); }catch(e){} }
+  if(code){ $('classCode').value=code; if($('myName').value.trim()) setTimeout(()=>classConnect(code),300); else setClassState('이름을 입력하고 [연결]을 누르세요.'); }
+})();
+
+/* ---------- 화면 전환 ---------- */
+function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); window.scrollTo(0,0);
+  if(id==='home') classStatus('대기 중'); if(id==='wait') classStatus('방 만들고 기다리는 중'); if(id==='offSetup') classStatus('인터넷 없이 하기 준비');
+  if(id==='offSetup') buildOffSecret();
+  if(id==='join') setTimeout(()=>$('joinCode').focus(),50);
+}
+function showOverlay(html){ $('overlayCard').innerHTML=html; $('overlay').classList.add('on'); }
+function hideOverlay(){ $('overlay').classList.remove('on'); }
+
+/* 난이도 선택 버튼 */
+document.querySelectorAll('.levels').forEach(box=>{
+  const g = box.dataset.group;
+  Object.values(LEVELS).forEach(lv=>{
+    const b=document.createElement('button'); b.className='lv'+(selLevel[g]===lv.key?' sel':'');
+    b.innerHTML=`<b>${lv.name}</b><small>${lv.desc}</small>`;
+    b.onclick=()=>{ selLevel[g]=lv.key; box.querySelectorAll('.lv').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); if(g==='off') buildOffSecret(); };
+    box.appendChild(b);
+  });
+});
+
+/* ---------- 숫자 입력 키패드 ---------- */
+function makeKeypad(container, lv, opts){
+  container.innerHTML='';
+  let val=[];
+  const slots=document.createElement('div'); slots.className='slots';
+  const keys=document.createElement('div'); keys.className='keys';
+  const acts=document.createElement('div'); acts.className='kp-actions';
+  const back=document.createElement('button'); back.className='btn-ghost'; back.textContent='⌫ 지우기';
+  const ok=document.createElement('button'); ok.className='btn-y'; ok.textContent=opts.okText||'확인';
+  acts.append(back, ok);
+  container.append(slots, keys, acts);
+  const keyBtns={};
+  digitsOf(lv).forEach(d=>{
+    const k=document.createElement('button'); k.className='key'; k.textContent=d;
+    k.onclick=()=>{ if(api.disabled||val.length>=lv.len||val.includes(d)) return; val.push(d); render(); };
+    keys.appendChild(k); keyBtns[d]=k;
+  });
+  back.onclick=()=>{ if(api.disabled) return; val.pop(); render(); };
+  ok.onclick=()=>{ if(api.disabled||val.length<lv.len) return; const v=val.slice(); if(opts.onSubmit(v)!==false){ if(!opts.keep){val=[];} render(); } };
+  function render(){
+    slots.innerHTML='';
+    for(let i=0;i<lv.len;i++){ const s=document.createElement('div'); s.className='slot'+(i===val.length&&!api.disabled?' cur':''); s.textContent= val[i]!==undefined ? (opts.mask?'●':val[i]) : ''; slots.appendChild(s); }
+    for(const d in keyBtns){ const used=val.includes(+d); keyBtns[d].classList.toggle('used',used); keyBtns[d].disabled=api.disabled||used||val.length>=lv.len; }
+    back.disabled=api.disabled||!val.length; ok.disabled=api.disabled||val.length<lv.len;
+  }
+  const api={disabled:false, setDisabled(b){api.disabled=b;render();}, clear(){val=[];render();}, render};
+  render();
+  return api;
+}
+/* 메모판: 지움 → 있음 → 원래대로 */
+function makeMemo(container, lv){
+  container.innerHTML='';
+  digitsOf(lv).forEach(d=>{
+    const k=document.createElement('button'); k.className='key'; k.textContent=d; let st=0;
+    k.onclick=()=>{ st=(st+1)%3; k.classList.toggle('memo-x',st===1); k.classList.toggle('memo-o',st===2); };
+    container.appendChild(k);
+  });
+}
+
+/* ---------- 비밀 숫자 보기/가리기 ---------- */
+let secretShown=false, mySecret=null;
+function toggleSecret(){ secretShown=!secretShown; updateSecretPills(); }
+function updateSecretPills(){
+  if(!mySecret) return;
+  const txt = secretShown ? mySecret.join('') : '●'.repeat(mySecret.length);
+  $('mySecretPill').textContent = `내 숫자: ${txt} ${secretShown?'🙈':'👁'}`;
+  $('offSecretPill').textContent = `내 숫자: ${txt} ${secretShown?'🙈':'👁'}`;
+}
+
+/* =========================================================
+   온라인 대전 (PeerJS)
+   - 비밀 숫자는 자기 기기 밖으로 나가지 않음
+   - 상대의 추측을 받으면 내 기기가 판정해서 결과만 보냄
+========================================================= */
+let peer=null, conn=null, isHost=false, G=null, connectTimer=null, sessId=null, gameNo=0;
+
+function cleanupNet(){
+  clearTimeout(connectTimer);
+  try{ conn&&conn.close(); }catch(e){}
+  try{ peer&&peer.destroy(); }catch(e){}
+  peer=null; conn=null;
+}
+function leaveToHome(){ cleanupNet(); G=null; mySecret=null; secretShown=false; hideOverlay(); go('home'); }
+function netFailHTML(where){
+  return `${where}<br><button class="btn-ghost btn-full" onclick="leaveToHome();go('offSetup')">인터넷 없이 하기로 바꾸기</button>`;
+}
+function peerOk(){
+  if(typeof Peer==='undefined'){ return false; }
+  return true;
+}
+function createRoom(){
+  $('hostErr').innerHTML='';
+  if(!peerOk()){ $('hostErr').innerHTML=netFailHTML('연결 프로그램을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'); return; }
+  isHost=true; sessId=Date.now().toString(36)+Math.random().toString(36).slice(2,6); gameNo=0;
+  const lv=LEVELS[selLevel.host];
+  $('hostBtn').disabled=true;
+  const tryOpen=(attempt)=>{
+    const code=String(Math.floor(1000+Math.random()*9000));
+    cleanupNet();
+    peer=new Peer(ID_PREFIX+code,{debug:0});
+    connectTimer=setTimeout(()=>{ $('hostBtn').disabled=false; $('hostErr').innerHTML=netFailHTML('연결 서버에 접속하지 못했어요. 학교 와이파이가 막고 있을 수 있어요.'); cleanupNet(); },12000);
+    peer.on('open',()=>{
+      clearTimeout(connectTimer); $('hostBtn').disabled=false;
+      $('codeShow').textContent=code; $('waitLevel').textContent=`난이도 ${lv.name} (${lv.desc})`;
+      $('waitMsg').textContent='상대를 기다리는 중…'; $('waitErr').innerHTML='';
+      go('wait');
+    });
+    peer.on('connection',c=>{
+      if(conn&&conn.open){ c.on('open',()=>{c.send({t:'full'}); setTimeout(()=>c.close(),300);}); return; }
+      conn=c; bindConn(lv);
+      c.on('open',()=>{ c.send({t:'hello', name:myName(), level:lv.key, sess:sessId}); });
+    });
+    peer.on('error',err=>{
+      clearTimeout(connectTimer);
+      if(err.type==='unavailable-id' && attempt<5){ tryOpen(attempt+1); return; }
+      $('hostBtn').disabled=false;
+      const msg='연결 오류가 생겼어요 ('+err.type+').';
+      if($('wait').classList.contains('on')) $('waitErr').innerHTML=netFailHTML(msg); else $('hostErr').innerHTML=netFailHTML(msg);
+    });
+    peer.on('disconnected',()=>{ try{peer.reconnect();}catch(e){} });
+  };
+  tryOpen(0);
+}
+function joinRoom(){
+  $('joinErr').innerHTML='';
+  const code=$('joinCode').value.replace(/\D/g,'');
+  if(code.length!==4){ $('joinErr').textContent='코드 4자리를 입력하세요.'; return; }
+  if(!peerOk()){ $('joinErr').innerHTML=netFailHTML('연결 프로그램을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'); return; }
+  isHost=false; cleanupNet();
+  $('joinBtn').disabled=true; $('joinBtn').textContent='연결하는 중…';
+  const fail=(m)=>{ $('joinBtn').disabled=false; $('joinBtn').textContent='들어가기'; $('joinErr').innerHTML=netFailHTML(m); cleanupNet(); };
+  peer=new Peer({debug:0});
+  connectTimer=setTimeout(()=>fail('연결하지 못했어요. 코드를 다시 확인하거나, 학교 와이파이가 막고 있을 수 있어요.'),15000);
+  peer.on('open',()=>{
+    conn=peer.connect(ID_PREFIX+code,{reliable:true});
+    bindConn(null);
+  });
+  peer.on('error',err=>{
+    if(err.type==='peer-unavailable'){ clearTimeout(connectTimer); fail('그런 방이 없어요. 코드를 다시 확인하세요.'); return; }
+    if(G) { toast('연결 오류: '+err.type); return; }
+    clearTimeout(connectTimer); fail('연결 오류가 생겼어요 ('+err.type+').');
+  });
+}
+function send(o){ try{ conn&&conn.open&&conn.send(o); }catch(e){} }
+
+function bindConn(hostLv){
+  conn.on('open',()=>{ if(!isHost) send({t:'hello', name:myName()}); });
+  conn.on('data',d=>{ try{ onData(d,hostLv); }catch(e){ console.error(e); } });
+  conn.on('close',()=>{ onPeerGone(); });
+  conn.on('error',()=>{ onPeerGone(); });
+}
+function onPeerGone(){
+  if(!G && $('wait').classList.contains('on')) return;
+  if(G && G.left) return;
+  if(G) G.left=true;
+  showOverlay(`<h2>연결이 끊어졌어요</h2><p class="note">상대가 나갔거나 인터넷이 끊겼어요.</p><button class="btn-y btn-full" onclick="leaveToHome()">처음으로</button>`);
+}
+
+function onData(d, hostLv){
+  if(!d||typeof d!=='object') return;
+  switch(d.t){
+    case 'full':
+      clearTimeout(connectTimer); $('joinBtn').disabled=false; $('joinBtn').textContent='들어가기';
+      $('joinErr').textContent='이미 두 명이 들어간 방이에요.'; cleanupNet(); return;
+    case 'hello': {
+      clearTimeout(connectTimer);
+      const lvKey = isHost ? hostLv.key : d.level;
+      if(!LEVELS[lvKey]) return;
+      if(!isHost){ sessId=String(d.sess||'x').slice(0,20); } gameNo=0;
+      newOnlineGame(LEVELS[lvKey], String(d.name||'상대').slice(0,10));
+      $('joinBtn').disabled=false; $('joinBtn').textContent='들어가기';
+      return;
+    }
+    case 'ready': if(G){ G.oppReady=true; maybeStart(); } return;
+    case 'guess': if(G) onOppGuess(d); return;
+    case 'hint':  if(G) onMyHint(d); return;
+    case 'again': if(G){ G.oppAgain=true; if(G.meAgain) restartOnline(); else $('againMsg')&&($('againMsg').textContent=`${G.oppName}님이 한 판 더 하고 싶어해요!`); } return;
+    case 'bye': onPeerGone(); return;
+  }
+}
+
+function newOnlineGame(lv, oppName){
+  gameNo++;
+  G={gid:sessId+'-'+gameNo, lv, oppName, myReady:false, oppReady:false, started:false, over:false, rounds:[], cur:0, meAgain:false, oppAgain:false, left:false};
+  mySecret=null; secretShown=false; hideOverlay();
+  classStatus(`대전 중 (vs ${oppName})`);
+  $('vsPill').textContent=`${myName()} VS ${oppName}`;
+  $('lvPill').textContent=`난이도 ${lv.name}`;
+  $('secretRule').textContent=`${lv.min}~${lv.max} 중에서 서로 다른 숫자 ${lv.len}개`;
+  $('secretWait').textContent='';
+  makeKeypad($('secretPad'), lv, {okText:'이 숫자로 정하기', mask:true, onSubmit:v=>{
+    mySecret=v; G.myReady=true; send({t:'ready'});
+    $('secretPad').innerHTML=`<p class="center" style="font-family:'Black Han Sans';font-size:40px;letter-spacing:10px;color:var(--yellow)">${'●'.repeat(lv.len)}</p>`;
+    $('secretWait').textContent=G.oppReady?'':`${G.oppName}님이 숫자를 정하는 중…`;
+    maybeStart(); return false;
+  }});
+  go('secret');
+}
+function restartOnline(){ newOnlineGame(G.lv, G.oppName); }
+function maybeStart(){
+  if(!G||!G.myReady) { if(G&&G.oppReady&&!G.myReady) $('secretWait').textContent=`${G.oppName}님은 준비 완료! 숫자를 정하세요`; return; }
+  if(!G.oppReady) return;
+  if(G.started) return;
+  G.started=true; startOnlineGame();
+}
+let guessPad=null;
+function startOnlineGame(){
+  const lv=G.lv;
+  updateSecretPills();
+  $('oppLogTitle').textContent=`${G.oppName}의 추측`;
+  $('gameLegend').innerHTML=legendHTML(lv);
+  guessPad=makeKeypad($('guessPad'), lv, {okText:'추측하기', onSubmit:v=>submitGuess(v)});
+  makeMemo($('memoPad'), lv);
+  renderGame(); go('game');
+}
+function R(i){ return G.rounds[i] || (G.rounds[i]={myG:null,myH:null,oppG:null,oppH:null}); }
+function submitGuess(v){
+  if(G.over) return false;
+  const r=R(G.cur);
+  if(r.myG) return false;
+  r.myG=v; send({t:'guess', r:G.cur, g:v});
+  renderGame(); return true;
+}
+function onOppGuess(d){
+  const i=d.r|0; if(i<0||i>=MAX_ROUNDS||!Array.isArray(d.g)||d.g.length!==G.lv.len) return;
+  const g=d.g.map(x=>x|0);
+  const r=R(i); if(r.oppG) return;
+  r.oppG=g; r.oppH=judge(mySecret,g,G.lv);
+  send({t:'hint', r:i, h:r.oppH});
+  checkRound();
+}
+function onMyHint(d){
+  const i=d.r|0; const r=R(i); if(!r.myG||r.myH) return;
+  r.myH=d.h; checkRound();
+}
+function checkRound(){
+  while(!G.over){
+    const r=G.rounds[G.cur];
+    if(!(r&&r.myH&&r.oppH)) break;
+    const iWin=isWin(r.myH,G.lv), theyWin=isWin(r.oppH,G.lv);
+    const n=G.cur+1;
+    if(iWin||theyWin||n>=MAX_ROUNDS){ G.over=true; G.result=[iWin,theyWin,n]; renderGame(); showResult(iWin,theyWin,n); return; }
+    G.cur++;
+  }
+  renderGame();
+}
+function renderGame(){
+  const lv=G.lv, r=G.rounds[G.cur]||{};
+  $('roundPill').textContent=`${Math.min(G.cur+1,MAX_ROUNDS)}회 / ${MAX_ROUNDS}`;
+  const st=$('gameStatus');
+  if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">결과 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
+  else if(!r.myG){ st.textContent=`${G.cur+1}회: 추측할 숫자를 입력하세요`; st.className='status'; guessPad&&guessPad.setDisabled(false); }
+  else { st.textContent=`${G.oppName}님을 기다리는 중…`; st.className='status wait'; guessPad&&guessPad.setDisabled(true); }
+  // 내 추측: 둘 다 낸 회만 결과 공개 (동시 공개)
+  const mine=[], theirs=[];
+  G.rounds.forEach((x,i)=>{
+    const done = x.myH && x.oppH;
+    if(x.myG) mine.push(`<li><span class="n">${i+1}</span><span class="g">${x.myG.join('')}</span>${done?hintHTML(x.myH,lv):'<span class="muted">대기</span>'}</li>`);
+    if(x.oppG && (done || G.over)) theirs.push(`<li><span class="n">${i+1}</span><span class="g">${x.oppG.join('')}</span>${hintHTML(x.oppH,lv)}</li>`);
+  });
+  $('myLog').innerHTML = mine.reverse().join('') || '<li class="empty">아직 없어요</li>';
+  $('oppLog').innerHTML = theirs.reverse().join('') || '<li class="empty">아직 없어요</li>';
+}
+function showResult(iWin, theyWin, n){
+  let title, msg;
+  if(iWin&&theyWin){ title='무승부!'; msg=`${n}회에 두 사람 모두 맞혔어요.`; }
+  else if(iWin){ title='승리! 🎉'; msg=`${n}회 만에 ${G.oppName}님의 숫자를 맞혔어요.`; }
+  else if(theyWin){ title='아쉬운 패배'; msg=`${G.oppName}님이 ${n}회 만에 내 숫자를 맞혔어요.`; }
+  else { title='무승부'; msg=`${MAX_ROUNDS}회 안에 아무도 못 맞혔어요.`; }
+  G.meAgain=false;
+  if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome: iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw', rounds:n, level:G.lv.name}); classStatus(`경기 끝 (vs ${G.oppName})`); }
+  showOverlay(`<p class="muted">${esc(myName())} VS ${esc(G.oppName)}</p><div class="result-title">${title}</div><p>${msg}</p>
+    <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b></p>
+    <p class="muted" id="againMsg" style="margin-top:12px;min-height:20px">${G.oppAgain?`${esc(G.oppName)}님이 한 판 더 하고 싶어해요!`:''}</p>
+    <button class="btn-y btn-full" onclick="askAgain(this)">한 판 더!</button>
+    <button class="btn-ghost btn-full" onclick="hideOverlay()">기록 보기</button>
+    <button class="btn-ghost btn-full" onclick="send({t:'bye'});leaveToHome()">그만하기</button>`);
+}
+function askAgain(btn){
+  G.meAgain=true; send({t:'again'});
+  if(G.oppAgain) restartOnline(); else { btn.disabled=true; btn.textContent=`${G.oppName}님을 기다리는 중…`; }
+}
+$('joinCode').addEventListener('keydown',e=>{ if(e.key==='Enter') joinRoom(); });
+window.addEventListener('beforeunload',()=>{ send({t:'bye'}); });
+
+/* =========================================================
+   인터넷 없이 하기 (각자 기기)
+========================================================= */
+let OFF=null;
+function buildOffSecret(){
+  const lv=LEVELS[selLevel.off];
+  makeKeypad($('offSecretPad'), lv, {okText:'이 숫자로 시작', mask:true, onSubmit:v=>{ startOffline(lv,v); return false; }});
+}
+let judgePad=null, recordPad=null, pendingRec=null;
+function startOffline(lv, secret){
+  OFF={lv, judged:[], records:[], done:false};
+  mySecret=secret; secretShown=false; updateSecretPills();
+  $('offLvPill').textContent=`난이도 ${lv.name}`; classStatus(`인터넷 없이 하기 (난이도 ${lv.name})`);
+  $('judgeResultCard').style.display='none';
+  judgePad=makeKeypad($('judgePad'), lv, {okText:'판정', onSubmit:v=>{
+    const h=judge(mySecret,v,lv); OFF.judged.push({g:v,h});
+    const n=OFF.judged.length, win=isWin(h,lv);
+    $('judgeResultCard').style.display='block';
+    $('judgeResult').innerHTML=`<p class="muted">상대의 ${n}번째 추측</p><div class="g">${v.join('')}</div>${hintHTML(h,lv)}${win?`<div class="result-title" style="margin-top:10px">정답!</div><p>상대가 ${n}번 만에 맞혔어요</p>`:''}`;
+    renderOff(); return true;
+  }});
+  recordPad=makeKeypad($('recordPad'), lv, {okText:'다음: 결과 입력', onSubmit:v=>{ beginRecord(v); return true; }});
+  makeMemo($('offMemoPad'), lv);
+  $('recordHint').style.display='none';
+  offTab('judge'); renderOff(); go('offPlay');
+}
+function offTab(t){
+  $('tabJudge').classList.toggle('sel',t==='judge'); $('tabRecord').classList.toggle('sel',t==='record');
+  $('judgePane').style.display=t==='judge'?'block':'none'; $('recordPane').style.display=t==='record'?'block':'none';
+}
+function beginRecord(v){
+  const lv=OFF.lv;
+  pendingRec={g:v, h: lv.mode==='sb'?{s:0,b:0}:v.map(()=> 'X')};
+  recordPad.setDisabled(true);
+  $('recordHint').style.display='block';
+  renderRecordInput();
+}
+function renderRecordInput(){
+  const lv=OFF.lv, box=$('recordHintInput');
+  if(lv.mode==='sb'){
+    const h=pendingRec.h;
+    box.innerHTML=`<p class="center" style="font-family:'Black Han Sans';font-size:32px;letter-spacing:6px">${pendingRec.g.join('')}</p>
+      <div class="stepper"><button onclick="stepSB('s',-1)">−</button><span style="color:var(--yellow)">${h.s} S</span><button onclick="stepSB('s',1)">+</button></div>
+      <div class="stepper"><button onclick="stepSB('b',-1)">−</button><span style="color:#7fb3ff">${h.b} B</span><button onclick="stepSB('b',1)">+</button></div>`;
+  } else {
+    box.innerHTML=`<p class="center muted">각 숫자 아래 동그라미를 눌러 ○ → △ → × 로 바꾸세요</p>
+      <div class="pick">${pendingRec.g.map(d=>`<div class="center" style="font-family:'Black Han Sans';font-size:32px;width:64px">${d}</div>`).join('')}</div>
+      <div class="pick">${pendingRec.h.map((x,i)=>`<button class="${x}" onclick="cycleRec(${i})">${SYM[x]}</button>`).join('')}</div>`;
+  }
+}
+function cycleRec(i){ const order=['X','O','A']; const h=pendingRec.h; h[i]=order[(order.indexOf(h[i])+1)%3]; renderRecordInput(); }
+function stepSB(k,d){ const h=pendingRec.h, L=OFF.lv.len; h[k]=Math.max(0,Math.min(L,h[k]+d)); if(h.s+h.b>L){ h[k==='s'?'b':'s']=L-h[k]; } renderRecordInput(); }
+function saveRecord(){
+  if(!pendingRec) return;
+  OFF.records.push(pendingRec);
+  const win=isWin(pendingRec.h,OFF.lv), n=OFF.records.length;
+  pendingRec=null; $('recordHint').style.display='none'; recordPad.setDisabled(false); recordPad.clear();
+  renderOff();
+  if(win) showOverlay(`<div class="result-title">맞혔다! 🎉</div><p>${n}번 만에 상대 숫자를 맞혔어요.</p><p class="muted" style="margin-top:8px">상대도 같은 횟수 안에 맞혔다면 무승부예요.</p><button class="btn-y btn-full" onclick="hideOverlay()">확인</button>`);
+}
+function renderOff(){
+  const lv=OFF.lv;
+  $('judgeLog').innerHTML = OFF.judged.map((x,i)=>`<li><span class="n">${i+1}</span><span class="g">${x.g.join('')}</span>${hintHTML(x.h,lv)}</li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
+  $('recordLog').innerHTML = OFF.records.map((x,i)=>`<li><span class="n">${i+1}</span><span class="g">${x.g.join('')}</span>${hintHTML(x.h,lv)}</li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
+}
+function confirmLeave(){
+  showOverlay(`<h2>게임을 끝낼까요?</h2><p class="note">기록이 모두 지워져요.</p><div class="row" style="margin-top:12px"><button class="btn-ghost" onclick="hideOverlay()">계속하기</button><button class="btn-r" onclick="OFF=null;leaveToHome()">끝내기</button></div>`);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>숫자 야구 대전 · 교사용</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--field:#1f5d3a;--board:#0f2a1c;--chalk:#f6f3e8;--yellow:#ffd23f;--red:#e4572e;--blue:#3a86ff;--line:rgba(246,243,232,.18)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Noto Sans KR",system-ui,sans-serif;background:var(--field);color:var(--chalk);min-height:100vh;
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 60px,transparent 60px 120px)}
+.wrap{max-width:1180px;margin:0 auto;padding:20px}
+h1{font-family:"Black Han Sans";font-weight:400;font-size:34px}
+h1 span{color:var(--yellow)}
+h2{font-family:"Black Han Sans";font-weight:400;font-size:22px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card{background:var(--board);border:2px solid var(--line);border-radius:16px;padding:18px}
+.top{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin:16px 0 14px}
+.grid{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-weight:700;font-size:16px;padding:10px 14px;background:var(--chalk);color:var(--board)}
+button:active{transform:scale(.97)}
+.btn-y{background:var(--yellow)}.btn-r{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--chalk);border:2px solid var(--line)}
+.code{font-family:"Black Han Sans";font-size:84px;letter-spacing:16px;color:var(--yellow);line-height:1}
+.link{font-size:15px;word-break:break-all;background:#0b1f14;padding:8px 10px;border-radius:8px;margin:10px 0;border:1px solid var(--line)}
+.muted{opacity:.7;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:#6b7a70}
+.dot.on{background:#5ee08a;box-shadow:0 0 8px #5ee08a}
+.pausebtn{width:100%;font-size:26px;font-family:"Black Han Sans";font-weight:400;padding:22px;margin-top:6px}
+.pausebtn.paused{background:var(--red);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.75}}
+input[type=text]{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:2px solid var(--line);background:#0b1f14;color:var(--chalk)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-weight:700;opacity:.75;font-size:13px;padding:6px 8px;border-bottom:2px solid var(--line)}
+td{padding:8px;border-bottom:1px dashed var(--line)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.rank1 td:first-child{color:var(--yellow);font-weight:900}
+.win{color:var(--yellow);font-weight:700}.lose{opacity:.8}.draw{color:#9fd3ff}
+.students{list-style:none;max-height:420px;overflow:auto}
+.students li{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed var(--line)}
+.students .nm{font-weight:700;min-width:80px}
+.students .st{opacity:.75;font-size:14px}
+.students li.off{opacity:.45}
+.scroll{max-height:460px;overflow:auto}
+.empty{opacity:.5;font-size:14px;padding:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{background:#0b1f14;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13px}
+.overlay{position:fixed;inset:0;background:rgba(5,15,10,.85);display:none;align-items:center;justify-content:center;z-index:10}
+.overlay.on{display:flex}
+.overlay .card{max-width:380px;text-align:center}
+.err{color:#ffb4a2;margin-top:8px;font-size:15px}
+@media (max-width:860px){.top,.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between">
+    <h1>숫자 야구 대전 <span>교사용</span></h1>
+    <span class="badge" id="connBadge">연결 준비 중…</span>
+  </div>
+
+  <div class="top">
+    <div class="card">
+      <h2>수업 코드</h2>
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <div class="code" id="codeShow">····</div>
+        <button class="btn-ghost" onclick="askNewCode()">새 코드 만들기</button>
+      </div>
+      <div class="link" id="linkShow"></div>
+      <div class="row">
+        <button class="btn-y" onclick="copyLink()">학생용 주소 복사</button>
+        <span class="muted">이 주소로 들어오면 수업 코드가 자동으로 들어가요</span>
+      </div>
+      <div id="peerErr" class="err"></div>
+      <p class="muted" style="margin-top:10px">※ 이 페이지를 닫으면 학생 기기와 연결이 끊겨요. 수업 중에는 열어 두세요.</p>
+    </div>
+    <div class="card">
+      <h2>전체 화면 멈춤</h2>
+      <label class="muted" for="pauseMsg">학생 화면에 보일 문구</label>
+      <input type="text" id="pauseMsg" maxlength="40" value="선생님을 봐 주세요 👀">
+      <button class="pausebtn btn-y" id="pauseBtn" onclick="togglePause()">✋ 모든 학생 화면 멈추기</button>
+      <p class="muted" style="margin-top:8px" id="pauseInfo">연결된 학생 0명</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>접속한 학생 <span class="badge" id="stuCount">0명</span></h2>
+      <ul class="students" id="stuList"><li class="empty">아직 연결된 학생이 없어요</li></ul>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <h2 style="margin:0">학생별 전적</h2>
+        <div class="row">
+          <button class="btn-ghost" onclick="downloadCSV()">CSV 내려받기</button>
+          <button class="btn-ghost" onclick="askClear()">기록 지우기</button>
+        </div>
+      </div>
+      <div class="scroll"><table><thead><tr><th>순위</th><th>이름</th><th class="num">경기</th><th class="num">승</th><th class="num">무</th><th class="num">패</th><th class="num">승률</th><th class="num">평균 회</th></tr></thead><tbody id="statBody"></tbody></table></div>
+      <p class="muted" style="margin-top:6px">평균 회: 이긴 경기에서 몇 회 만에 맞혔는지의 평균 (작을수록 추리를 잘한 것)</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>경기 기록 <span class="badge" id="gameCount">0경기</span></h2>
+    <div class="scroll"><table><thead><tr><th>시각</th><th>대전</th><th>결과</th><th>난이도</th><th class="num">회</th></tr></thead><tbody id="gameBody"></tbody></table></div>
+    <p class="muted" style="margin-top:6px">온라인 대전 결과만 자동으로 기록돼요. (인터넷 없이 하기 모드는 기록되지 않아요)</p>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="card" id="ovCard"></div></div>
+
+<script>
+const ID_PREFIX='kgg-numbaseball-v1-';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+let code=LS.get('nb-t-code',null);
+let records=LS.get('nb-t-records',[]);   // {gid,time,a,b,winner,rounds,level}
+let paused=false;
+const students=new Map(); // key: conn peer id -> {conn,name,dev,status,online}
+let peer=null;
+
+function newCode(){ return String(Math.floor(1000+Math.random()*9000)); }
+if(!code){ code=newCode(); LS.set('nb-t-code',code); }
+
+function studentURL(){
+  const base=location.href.replace(/[?#].*$/,'').replace(/teacher\.html$/,'');
+  return base+'?c='+code;
+}
+function showCode(){ $('codeShow').textContent=code; $('linkShow').textContent=studentURL(); }
+
+function openPeer(attempt=0){
+  try{ peer&&peer.destroy(); }catch(e){}
+  if(typeof Peer==='undefined'){ $('connBadge').textContent='연결 프로그램을 불러오지 못함'; $('peerErr').textContent='인터넷 연결을 확인하고 새로고침해 주세요.'; return; }
+  $('peerErr').textContent=''; $('connBadge').textContent='연결 준비 중…';
+  peer=new Peer(ID_PREFIX+'class-'+code,{debug:0});
+  peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'; $('connBadge').style.color='#5ee08a'; });
+  peer.on('connection',c=>{
+    c.on('open',()=>{
+      students.set(c.peer,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true});
+      c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
+      renderStudents();
+    });
+    c.on('data',d=>onData(c,d));
+    c.on('close',()=>{ const s=students.get(c.peer); if(s){ s.online=false; renderStudents(); } });
+  });
+  peer.on('error',err=>{
+    if(err.type==='unavailable-id'){ $('connBadge').textContent='코드 사용 중'; $('connBadge').style.color='';
+      $('peerErr').innerHTML='이 수업 코드가 다른 창(또는 다른 기기)에서 이미 열려 있어요. 그 창을 닫거나 <b>새 코드 만들기</b>를 누르세요.'; return; }
+    if(['network','server-error','socket-error','socket-closed'].includes(err.type)){
+      $('connBadge').textContent='연결 끊김 · 다시 시도 중'; $('connBadge').style.color='';
+      setTimeout(()=>openPeer(attempt+1), Math.min(10000,2000*(attempt+1)));
+    }
+  });
+  peer.on('disconnected',()=>{ try{peer.reconnect();}catch(e){} });
+}
+
+function onData(c,d){
+  if(!d||typeof d!=='object') return;
+  const s=students.get(c.peer); if(!s) return;
+  if(d.t==='hi'){
+    s.name=String(d.name||'(이름 없음)').slice(0,10); s.dev=String(d.dev||'').slice(0,12); s.status=String(d.status||'').slice(0,40);
+    // 같은 기기가 다시 접속한 경우 이전 줄 정리
+    for(const [k,o] of students){ if(k!==c.peer && o.dev && o.dev===s.dev && !o.online) students.delete(k); }
+    renderStudents();
+  } else if(d.t==='status'){
+    s.status=String(d.status||'').slice(0,40); if(d.name) s.name=String(d.name).slice(0,10); renderStudents();
+  } else if(d.t==='result'){
+    addResult(d);
+  }
+}
+function addResult(d){
+  const gid=String(d.gid||'').slice(0,40); if(!gid) return;
+  if(records.some(r=>r.gid===gid)) return;     // 두 학생이 같은 경기를 보내므로 한 번만 기록
+  const me=String(d.me||'?').slice(0,10), opp=String(d.opp||'?').slice(0,10);
+  const outcome=['win','lose','draw'].includes(d.outcome)?d.outcome:'draw';
+  const winner= outcome==='win'?me : outcome==='lose'?opp : null;
+  records.push({gid,time:Date.now(),a:me,b:opp,winner,rounds:Math.max(1,Math.min(20,d.rounds|0)),level:String(d.level||'').slice(0,2)});
+  LS.set('nb-t-records',records); renderRecords();
+}
+
+function togglePause(){
+  paused=!paused;
+  const msg=$('pauseMsg').value.trim()||'선생님을 봐 주세요';
+  for(const s of students.values()){ if(s.online) try{ s.conn.send({t:'pause',on:paused,msg}); }catch(e){} }
+  const b=$('pauseBtn');
+  b.classList.toggle('paused',paused); b.classList.toggle('btn-y',!paused);
+  b.textContent= paused ? '▶ 다시 시작하기 (지금 멈춘 상태)' : '✋ 모든 학생 화면 멈추기';
+}
+
+function renderStudents(){
+  const arr=[...students.values()].sort((a,b)=> (b.online-a.online) || a.name.localeCompare(b.name,'ko'));
+  const on=arr.filter(s=>s.online).length;
+  $('stuCount').textContent=on+'명'; $('pauseInfo').textContent=`연결된 학생 ${on}명`;
+  $('stuList').innerHTML = arr.length ? arr.map(s=>`<li class="${s.online?'':'off'}"><span class="dot ${s.online?'on':''}"></span><span class="nm">${esc(s.name)}</span><span class="st">${s.online?esc(s.status):'연결 끊김'}</span></li>`).join('') : '<li class="empty">아직 연결된 학생이 없어요</li>';
+}
+function stats(){
+  const m=new Map();
+  const get=n=>{ if(!m.has(n)) m.set(n,{name:n,g:0,w:0,d:0,l:0,wr:0}); return m.get(n); };
+  for(const r of records){
+    const A=get(r.a), B=get(r.b); A.g++; B.g++;
+    if(!r.winner){ A.d++; B.d++; }
+    else { const W=r.winner===r.a?A:B, L=r.winner===r.a?B:A; W.w++; L.l++; W.wr+=r.rounds; }
+  }
+  return [...m.values()].sort((x,y)=> y.w-x.w || (x.l-y.l) || (y.d-x.d) || x.name.localeCompare(y.name,'ko'));
+}
+function renderRecords(){
+  const st=stats();
+  let rank=0, prev=null;
+  $('statBody').innerHTML = st.length ? st.map((s,i)=>{ const key=s.w+'/'+s.l+'/'+s.d; if(key!==prev){rank=i+1;prev=key;}
+    const rate=s.g?Math.round(s.w/s.g*100)+'%':'-'; const avg=s.w?(s.wr/s.w).toFixed(1):'-';
+    return `<tr class="${rank===1?'rank1':''}"><td>${rank}</td><td>${esc(s.name)}</td><td class="num">${s.g}</td><td class="num">${s.w}</td><td class="num">${s.d}</td><td class="num">${s.l}</td><td class="num">${rate}</td><td class="num">${avg}</td></tr>`; }).join('')
+    : '<tr><td colspan="8" class="empty">아직 기록이 없어요</td></tr>';
+  $('gameCount').textContent=records.length+'경기';
+  $('gameBody').innerHTML = records.length ? records.slice().reverse().map(r=>{
+    const t=new Date(r.time); const hh=String(t.getHours()).padStart(2,'0'), mm=String(t.getMinutes()).padStart(2,'0');
+    const res = r.winner ? `<span class="win">${esc(r.winner)} 승</span>` : '<span class="draw">무승부</span>';
+    return `<tr><td>${t.getMonth()+1}/${t.getDate()} ${hh}:${mm}</td><td>${esc(r.a)} vs ${esc(r.b)}</td><td>${res}</td><td>${esc(r.level)}</td><td class="num">${r.rounds}</td></tr>`; }).join('')
+    : '<tr><td colspan="5" class="empty">아직 기록이 없어요</td></tr>';
+}
+
+function csvCell(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function downloadCSV(){
+  const lines=[['시각','학생1','학생2','결과','난이도','회']];
+  for(const r of records){ const t=new Date(r.time); lines.push([t.toLocaleString('ko-KR'),r.a,r.b,r.winner?r.winner+' 승':'무승부',r.level,r.rounds]); }
+  lines.push([]); lines.push(['이름','경기','승','무','패','승률(%)']);
+  for(const s of stats()) lines.push([s.name,s.g,s.w,s.d,s.l,s.g?Math.round(s.w/s.g*100):0]);
+  const blob=new Blob(['﻿'+lines.map(l=>l.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); const d=new Date();
+  a.href=URL.createObjectURL(blob); a.download=`숫자야구_전적_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function ov(html){ $('ovCard').innerHTML=html; $('overlay').classList.add('on'); }
+function ovClose(){ $('overlay').classList.remove('on'); }
+function askClear(){ ov(`<h2 style="justify-content:center">기록을 모두 지울까요?</h2><p class="muted">지운 기록은 되돌릴 수 없어요. 필요하면 먼저 CSV로 내려받으세요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="ovClose()">취소</button><button class="btn-r" onclick="records=[];LS.set('nb-t-records',records);renderRecords();ovClose()">모두 지우기</button></div>`); }
+function askNewCode(){ ov(`<h2 style="justify-content:center">새 수업 코드를 만들까요?</h2><p class="muted">지금 연결된 학생들은 끊어지고, 새 코드로 다시 연결해야 해요. 기록은 그대로 남아요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="ovClose()">취소</button><button class="btn-y" onclick="changeCode()">새 코드 만들기</button></div>`); }
+function changeCode(){ ovClose(); code=newCode(); LS.set('nb-t-code',code); students.clear(); renderStudents(); showCode(); openPeer(); }
+async function copyLink(){
+  try{ await navigator.clipboard.writeText(studentURL()); $('connBadge').textContent='주소를 복사했어요'; setTimeout(()=>$('connBadge').textContent='● 학생 연결 받는 중',1500); }
+  catch(e){ const r=document.createRange(); r.selectNodeContents($('linkShow')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+}
+$('pauseMsg').addEventListener('change',()=>{ if(paused){ paused=!paused; togglePause(); } });
+
+showCode(); renderStudents(); renderRecords(); openPeer();
+</script>
+</body>
+</html>
