@@ -35,7 +35,7 @@ button:disabled{opacity:.35;cursor:default}
 input[type=text]{width:100%;font:inherit;font-size:20px;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:#0b1f14;color:var(--chalk)}
 input.code{font-family:"Black Han Sans";font-size:40px;text-align:center;letter-spacing:12px}
 label.small{display:block;font-size:14px;opacity:.75;margin:12px 0 6px}
-.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.levels{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .lv{background:#0b1f14;color:var(--chalk);border:2px solid var(--line);padding:12px 6px;line-height:1.3}
 .lv b{display:block;font-family:"Black Han Sans";font-weight:400;font-size:28px}
 .lv small{font-size:12px;opacity:.8;font-weight:400}
@@ -182,7 +182,7 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
     <h2>규칙</h2>
     <div class="legend" id="homeLegend"></div>
     <div class="example">예) 정답이 <b>352</b>일 때 <b>325</b>를 부르면 → <span id="exHint"></span></div>
-    <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 결과가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>상</b> 단계는 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
+    <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 결과가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>중상·상</b> 단계는 진짜 야구 규칙! 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
   </div>
 </section>
 
@@ -327,6 +327,7 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 const LEVELS = {
   easy:{key:'easy',name:'하',len:2,min:1,max:6,mode:'oxa',desc:'1~6 · 2자리'},
   mid :{key:'mid', name:'중',len:3,min:1,max:9,mode:'oxa',desc:'1~9 · 3자리'},
+  mh  :{key:'mh',  name:'중상',len:3,min:1,max:6,mode:'sb', desc:'1~6 · 3자리 · S/B'},
   hard:{key:'hard',name:'상',len:3,min:0,max:9,mode:'sb', desc:'0~9 · 3자리 · S/B'}
 };
 const MAX_ROUNDS = 10;
