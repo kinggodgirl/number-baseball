@@ -145,14 +145,15 @@ function openPeer(attempt=0){
   peer=new Peer(ID_PREFIX+'class-'+code,{debug:0});
   peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'; $('connBadge').style.color='#5ee08a'; });
   peer.on('connection',c=>{
+    c._key='tmp-'+c.peer;   // 학생이 기기 번호(hi)를 보내기 전 임시 이름
     c.on('open',()=>{
-      students.set(c.peer,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true});
+      students.set(c._key,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true,seen:Date.now()});
       c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
       c.send({t:'offline',on:offlineAllowed});
       renderStudents();
     });
     c.on('data',d=>onData(c,d));
-    c.on('close',()=>{ const s=students.get(c.peer); if(s){ s.online=false; renderStudents(); } });
+    c.on('close',()=>{ const s=students.get(c._key); if(s && s.conn===c){ s.online=false; renderStudents(); } });
   });
   peer.on('error',err=>{
     if(err.type==='unavailable-id'){ $('connBadge').textContent='코드 사용 중'; $('connBadge').style.color='';
@@ -167,11 +168,19 @@ function openPeer(attempt=0){
 
 function onData(c,d){
   if(!d||typeof d!=='object') return;
-  const s=students.get(c.peer); if(!s) return;
+  let s=students.get(c._key);
+  if(!s || s.conn!==c) return;          // 이미 새 연결로 바뀐 옛 연결
+  s.seen=Date.now(); if(!s.online){ s.online=true; renderStudents(); }
+  if(d.t==='ping'){ try{ c.send({t:'pong'}); }catch(e){} return; }
   if(d.t==='hi'){
-    s.name=String(d.name||'(이름 없음)').slice(0,10); s.dev=String(d.dev||'').slice(0,12); s.status=String(d.status||'').slice(0,40);
-    // 같은 기기가 다시 접속한 경우 이전 줄 정리
-    for(const [k,o] of students){ if(k!==c.peer && o.dev && o.dev===s.dev && !o.online) students.delete(k); }
+    const dev=String(d.dev||'').slice(0,16);
+    if(dev && c._key!=='dev-'+dev){
+      // 같은 기기(탭)가 다시 접속하면 예전 줄을 새 연결로 바꿔치기
+      const key='dev-'+dev, old=students.get(key);
+      if(old && old.conn!==c){ try{ old.conn.close(); }catch(e){} }
+      students.delete(c._key); c._key=key; students.set(key,s);
+    }
+    s.dev=dev; s.name=String(d.name||'(이름 없음)').slice(0,10); s.status=String(d.status||'').slice(0,40);
     renderStudents();
   } else if(d.t==='status'){
     s.status=String(d.status||'').slice(0,40); if(d.name) s.name=String(d.name).slice(0,10); renderStudents();
@@ -179,6 +188,15 @@ function onData(c,d){
     addResult(d);
   }
 }
+// 생존 신호가 12초 넘게 없으면 접속 끊김으로 표시, 끊긴 지 10분 지난 줄은 정리
+setInterval(()=>{
+  const now=Date.now(); let ch=false;
+  for(const [k,s] of students){
+    if(s.online && now-s.seen>12000){ s.online=false; ch=true; }
+    if(!s.online && now-s.seen>600000){ students.delete(k); ch=true; }
+  }
+  if(ch) renderStudents();
+},3000);
 function addResult(d){
   const gid=String(d.gid||'').slice(0,40); if(!gid) return;
   if(records.some(r=>r.gid===gid)) return;     // 두 학생이 같은 경기를 보내므로 한 번만 기록

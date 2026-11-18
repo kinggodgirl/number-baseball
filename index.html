@@ -313,7 +313,8 @@ $('myName').addEventListener('change',()=>{try{localStorage.setItem('nb-name',$(
    수업 연결 (교사용 페이지와 연결: 결과 보고 + 멈춤)
 ========================================================= */
 const CL={peer:null, conn:null, code:null, retry:null, status:'대기 중', paused:false};
-let deviceId; try{ deviceId=localStorage.getItem('nb-dev'); if(!deviceId){ deviceId=Math.random().toString(36).slice(2,10); localStorage.setItem('nb-dev',deviceId);} }catch(e){ deviceId=Math.random().toString(36).slice(2,10); }
+// 탭마다 다른 번호 (새로고침해도 같은 탭이면 유지)
+let deviceId; try{ deviceId=sessionStorage.getItem('nb-tab'); if(!deviceId){ deviceId=Math.random().toString(36).slice(2,12); sessionStorage.setItem('nb-tab',deviceId);} }catch(e){ deviceId=Math.random().toString(36).slice(2,12); }
 function setClassState(t, ok){ const el=$('classState'); el.textContent=t; el.style.color= ok? 'var(--yellow)':''; el.style.opacity= ok?1:''; }
 function classJoinClick(){
   const code=$('classCode').value.replace(/\D/g,'');
@@ -322,7 +323,7 @@ function classJoinClick(){
   try{ localStorage.setItem('nb-name',$('myName').value.trim()); localStorage.setItem('nb-class',code);}catch(e){}
   classConnect(code);
 }
-function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
+function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
 function classConnect(code){
   if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
   classDisconnect(); CL.code=code;
@@ -331,9 +332,16 @@ function classConnect(code){
   const retryLater=(msg)=>{ setClassState(msg); clearTimeout(CL.retry); CL.retry=setTimeout(()=>{ if(CL.code===code) classConnect(code); },6000); };
   p.on('open',()=>{
     const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
-    c.on('open',()=>{ CL.connected=true; setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate(); });
-    c.on('data',d=>{ if(!d) return; if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on); });
-    c.on('close',()=>{ setPause(false); CL.connected=false; updateGate(); if(CL.conn===c) retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
+    c.on('open',()=>{ CL.connected=true; CL.lastPong=Date.now(); setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate();
+      // 생존 신호: 4초마다 보내고, 12초 넘게 답이 없으면 끊긴 것으로 보고 다시 연결
+      clearInterval(CL.hb); CL.hb=setInterval(()=>{
+        if(CL.conn!==c){ clearInterval(CL.hb); return; }
+        if(Date.now()-CL.lastPong>12000){ clearInterval(CL.hb); CL.connected=false; setPause(false); updateGate(); CL.conn=null; try{c.close();}catch(e){} classConnect(code); return; }
+        classSend({t:'ping'});
+      },4000);
+    });
+    c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on); });
+    c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
   p.on('error',err=>{
     if(err.type==='peer-unavailable'){ setPause(false); retryLater(`수업 ${code}을(를) 찾지 못했어요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`); return; }
