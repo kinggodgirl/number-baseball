@@ -107,7 +107,8 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 .example{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:#0b1f14;border-radius:12px;padding:10px;margin:10px 0;font-size:15px}
 .example b{font-family:"Black Han Sans";font-weight:400;font-size:24px;letter-spacing:3px;color:var(--yellow)}
 /* game */
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.topbar .pill{white-space:nowrap}
 .pill{background:var(--board);border:2px solid var(--line);border-radius:999px;padding:6px 14px;font-size:15px}
 .secret-box{cursor:pointer;user-select:none}
 .status{text-align:center;font-family:"Black Han Sans";font-size:24px;margin:2px 0 10px;min-height:32px}
@@ -146,6 +147,18 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;display:none;z-index:20;max-width:90%;text-align:center}
 .toast.on{display:block}
 @media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
+/* 포인트 */
+.ptchip{display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:#2a2a10;border:2px solid var(--yellow);border-radius:999px;padding:6px 14px;font-weight:700}
+.ptchip b{font-family:"Black Han Sans";font-weight:400;font-size:24px;color:var(--yellow)}
+.bet{background:#0b1f14;border:2px solid var(--yellow);border-radius:14px;padding:12px;margin:6px 0 14px;text-align:center}
+.bet .bet-row{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0}
+.bet .bet-row button{width:52px;height:52px;padding:0;font-size:26px}
+.bet .bet-n{font-family:"Black Han Sans";font-size:44px;color:var(--yellow);min-width:110px}
+.bet .quick{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.bet .quick button{padding:6px 12px;font-size:15px}
+.bet.locked{opacity:.85}
+.pt-res{font-family:"Black Han Sans";font-size:34px;margin-top:8px}
+.pt-res.up{color:var(--yellow)}.pt-res.down{color:#ff8c6b}.pt-res.even{color:#9fd3ff}
 /* 시연 모드 (프로젝터용) */
 body.demo-mode .wrap{max-width:1280px}
 .dm-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
@@ -212,6 +225,7 @@ body.demo-mode .wrap{max-width:1280px}
       <input type="text" id="classCode" class="code" style="font-size:28px;letter-spacing:8px;flex:2" inputmode="numeric" maxlength="4" placeholder="0000">
       <button class="btn-y" style="flex:1" onclick="classJoinClick()">연결</button>
     </div>
+    <div id="ptHome" class="ptchip" style="display:none"></div>
     <p id="classState" class="muted" style="margin-top:8px">이름과 수업 코드를 넣고 [연결]을 눌러야 게임을 할 수 있어요</p>
   </div>
   <div class="card">
@@ -277,6 +291,7 @@ body.demo-mode .wrap{max-width:1280px}
   <div class="card">
     <h2 class="center">내 비밀 숫자 정하기</h2>
     <p class="center muted" id="secretRule"></p>
+    <div id="betBox"></div>
     <div id="secretPad"></div>
     <p class="center status wait" id="secretWait" style="margin-top:12px"></p>
   </div>
@@ -287,6 +302,7 @@ body.demo-mode .wrap{max-width:1280px}
   <div class="topbar">
     <span class="pill" id="roundPill">1회</span>
     <span class="pill" id="gameLvPill"></span>
+    <span class="pill" id="ptGame" style="display:none"></span>
     <span class="pill secret-box" id="mySecretPill" onclick="toggleSecret()">내 숫자: ●●● 👁</span>
   </div>
   <div class="players"><div class="pl" id="plMe"></div><div class="vs">VS</div><div class="pl" id="plOpp"></div></div>
@@ -534,6 +550,7 @@ function classConnect(code){
     });
     c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on);
       if(d.t==='count') setShowCount(!!d.on);
+      if(d.t==='points') setPoints(d);
       if(d.t==='quiz'||d.t==='quizReveal'||d.t==='quizClose') onQuiz(d); });
     c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
@@ -692,6 +709,39 @@ function submitQuiz(){
   if(isSecret && v.length!==LEVELS[st.lv].len){ $('quizMsg').textContent=`${LEVELS[st.lv].len}자리 숫자로 입력하세요`; return; }
   QZ.my= isSecret ? v : String(+v); classSend({t:'quizAns', id:QZ.id, v:QZ.my, name:myName(), dev:deviceId}); renderQuiz();
 }
+
+/* =========================================================
+   포인트 (장부는 교사용 페이지에 있음, 여기서는 표시와 걸기만)
+========================================================= */
+const PT={on:false, bal:null, max:50};
+function ptActive(){ return PT.on && PT.bal!=null; }
+function ptCap(){ return Math.max(0, Math.min(PT.bal||0, PT.max)); }
+function setPoints(d){
+  const was=PT.bal;
+  PT.on=!!d.on; PT.bal = d.bal==null ? null : Math.max(0, d.bal|0); PT.max=Math.max(0, d.max|0);
+  renderPoints();
+  if(G && !G.myReady) renderBet();
+  const el=$('ptAfter'); if(el && was!=null && PT.bal!=null) el.innerHTML=`내 포인트 <b>${PT.bal}</b>`;
+}
+function renderPoints(){
+  const on=ptActive();
+  $('ptHome').style.display=on?'inline-flex':'none'; $('ptHome').innerHTML=`🪙 내 포인트 <b>${PT.bal}</b>`;
+  $('ptGame').style.display=on?'':'none'; $('ptGame').textContent=`🪙 ${PT.bal}`;
+}
+function renderBet(){
+  const box=$('betBox');
+  if(!G || !ptActive()){ box.innerHTML=''; if(G) G.bet=0; return; }
+  const cap=ptCap();
+  if(G.bet==null) G.bet=Math.min(10,cap);
+  G.bet=Math.max(0,Math.min(G.bet,cap));
+  if(G.myReady){ box.innerHTML=`<div class="bet locked">🪙 <b>${G.bet}</b>포인트를 걸었어요${G.oppBet!=null?` · ${esc(G.oppName)}님은 <b>${G.oppBet}</b>포인트`:''}</div>`; return; }
+  box.innerHTML=`<div class="bet"><div>🪙 이번 판에 몇 포인트 걸까요? <span class="muted">(내 포인트 ${PT.bal} · 한 판 최대 ${PT.max})</span></div>
+    <div class="bet-row"><button onclick="betStep(-5)">−</button><span class="bet-n">${G.bet}</span><button onclick="betStep(5)">＋</button></div>
+    <div class="quick"><button class="btn-ghost" onclick="betSet(0)">0</button><button class="btn-ghost" onclick="betSet(10)">10</button><button class="btn-ghost" onclick="betSet(Math.floor(ptCap()/2))">절반</button><button class="btn-ghost" onclick="betSet(ptCap())">최대 ${cap}</button></div>
+    <p class="muted" style="margin-top:8px">이기면 <b>+${G.bet}</b>, 지면 <b>−${G.bet}</b>, 비기면 그대로예요.</p></div>`;
+}
+function betStep(d){ G.bet=(G.bet||0)+d; renderBet(); }
+function betSet(v){ G.bet=v; renderBet(); }
 
 /* ---------- 화면 전환 ---------- */
 function go(id){
@@ -871,7 +921,7 @@ function onData(d, hostLv){
       $('joinBtn').disabled=false; $('joinBtn').textContent='들어가기';
       return;
     }
-    case 'ready': if(G){ G.oppReady=true; maybeStart(); } return;
+    case 'ready': if(G){ G.oppReady=true; G.oppBet = d.bet==null ? null : Math.max(0, Math.min(999, d.bet|0)); renderBet(); maybeStart(); } return;
     case 'guess': if(G) onOppGuess(d); return;
     case 'hint':  if(G) onMyHint(d); return;
     case 'again': if(G){ G.oppAgain=true; if(G.meAgain) restartOnline(); else $('againMsg')&&($('againMsg').textContent=`${G.oppName}님이 한 판 더 하고 싶어해요!`); } return;
@@ -882,15 +932,17 @@ function onData(d, hostLv){
 
 function newOnlineGame(lv, oppName){
   gameNo++;
-  G={gid:sessId+'-'+gameNo, lv, oppName, myReady:false, oppReady:false, started:false, over:false, rounds:[], cur:0, meAgain:false, oppAgain:false, left:false};
+  G={gid:sessId+'-'+gameNo, bet:null, oppBet:null, lv, oppName, myReady:false, oppReady:false, started:false, over:false, rounds:[], cur:0, meAgain:false, oppAgain:false, left:false};
   mySecret=null; secretShown=false; hideOverlay();
   classStatus(`대전 중 (vs ${oppName})`);
   $('vsPill').textContent=`${myName()} VS ${oppName}`;
   $('lvPill').textContent=`난이도 ${lv.name}`;
   $('secretRule').textContent=`${lv.min}~${lv.max} 중에서 서로 다른 숫자 ${lv.len}개`;
   $('secretWait').textContent='';
+  renderBet();
   makeKeypad($('secretPad'), lv, {okText:'이 숫자로 정하기', mask:true, onSubmit:v=>{
-    mySecret=v; G.myReady=true; send({t:'ready'});
+    if(ptActive()) G.bet=Math.max(0,Math.min(G.bet||0,ptCap())); else G.bet=0;
+    mySecret=v; G.myReady=true; send({t:'ready', bet:G.bet}); renderBet();
     $('secretPad').innerHTML=`<p class="center" style="font-family:'Black Han Sans';font-size:40px;letter-spacing:10px;color:var(--yellow)">${'●'.repeat(lv.len)}</p>`;
     $('secretWait').textContent=G.oppReady?'':`${G.oppName}님이 숫자를 정하는 중…`;
     maybeStart(); return false;
@@ -960,8 +1012,9 @@ function renderGame(){
   // 두 사람 진행 상태
   const meDone=!!r.myG, oppDone=!!r.oppG;
   $('plMe').className='pl'+(meDone&&!G.over?' done':''); $('plOpp').className='pl'+(oppDone&&!G.over?' done':'');
-  $('plMe').innerHTML=`${esc(myName())}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
-  $('plOpp').innerHTML=`${esc(G.oppName)}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
+  const bt=b=> (b!=null && (b>0 || ptActive())) ? ` · 🪙${b}` : '';
+  $('plMe').innerHTML=`${esc(myName())}${bt(G.bet)}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
+  $('plOpp').innerHTML=`${esc(G.oppName)}${bt(G.oppBet)}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
   const st=$('gameStatus');
   if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">결과 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
   else if(!meDone){
@@ -996,8 +1049,11 @@ function showResult(iWin, theyWin, n){
   else if(theyWin){ title='아쉬운 패배'; msg=`${G.oppName}님이 ${n}회 만에 내 숫자를 맞혔어요.`; }
   else { title='무승부'; msg=`${MAX_ROUNDS}회 안에 아무도 못 맞혔어요.`; }
   G.meAgain=false;
-  if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome: iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw', rounds:n, level:G.lv.name}); classStatus(`경기 끝 (vs ${G.oppName})`); }
-  showOverlay(`<p class="muted">${esc(myName())} VS ${esc(G.oppName)}</p><div class="result-title">${title}</div><p>${msg}</p>
+  const outcome = iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw';
+  if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome, rounds:n, level:G.lv.name, myBet:G.bet||0, oppBet:G.oppBet||0}); classStatus(`경기 끝 (vs ${G.oppName})`); }
+  const b=G.bet||0, delta = outcome==='win'?b : outcome==='lose'?-b : 0;
+  const ptLine = (ptActive() || b>0) ? `<div class="pt-res ${delta>0?'up':delta<0?'down':'even'}">🪙 ${delta>0?'+'+delta:delta<0?'−'+(-delta):'±0'} 포인트</div><p class="muted" id="ptAfter">포인트 정산 중…</p>` : '';
+  showOverlay(`<p class="muted">${esc(myName())} VS ${esc(G.oppName)}</p><div class="result-title">${title}</div><p>${msg}</p>${ptLine}
     <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b> · ${esc(G.oppName)}의 숫자 <b id="oppSecretShow" style="color:var(--yellow);font-size:22px">${G.oppSecret||'…'}</b></p>
     <p class="muted" id="againMsg" style="margin-top:12px;min-height:20px">${G.oppAgain?`${esc(G.oppName)}님이 한 판 더 하고 싶어해요!`:''}</p>
     <button class="btn-y btn-full" onclick="askAgain(this)">한 판 더!</button>
