@@ -146,6 +146,27 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;display:none;z-index:20;max-width:90%;text-align:center}
 .toast.on{display:block}
 @media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
+/* 시연 모드 (프로젝터용) */
+body.demo-mode .wrap{max-width:1280px}
+.dm-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
+.dm-opts{gap:12px;align-items:center;flex-wrap:wrap}.dm-opts>*{flex:none}
+.dm-opts select{font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:#0b1f14;color:var(--chalk);margin-left:4px}
+.dm-opts button{padding:8px 14px;font-size:16px}
+.coach{display:flex;gap:14px;align-items:flex-start;background:var(--chalk);color:var(--board);border-radius:18px;padding:16px 20px;margin-bottom:14px;box-shadow:0 6px 0 rgba(0,0,0,.18)}
+.coach-face{font-size:44px;line-height:1}
+.coach-text{font-size:22px;line-height:1.6;font-weight:500;flex:1}
+.coach-text b{font-weight:900}
+.coach-text .hl-O{background:var(--yellow);padding:0 6px;border-radius:6px;font-weight:900}
+.coach-text .hl-A{background:var(--blue);color:#fff;padding:0 6px;border-radius:6px;font-weight:900}
+.coach-text .hl-X{background:#3c4a42;color:#cfd8d3;padding:0 6px;border-radius:6px;font-weight:900}
+.dm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.dm-grid>.card{margin:0}
+.think-n{font-family:"Black Han Sans";font-size:56px;color:var(--yellow);line-height:1}
+.think-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.think-list span{font-family:"Black Han Sans";font-size:20px;background:#1c3326;border-radius:6px;padding:2px 8px}
+.cand .on{font-family:"Black Han Sans";font-size:20px;padding:8px 0;background:#0b1f14;border:2px solid var(--line);border-radius:8px;text-align:center}
+.cand .off{font-family:"Black Han Sans";font-size:20px;padding:8px 0;background:#18241e;color:#4f5d55;text-decoration:line-through;border-radius:8px;text-align:center}
+@media (max-width:900px){.dm-grid{grid-template-columns:1fr}.coach-text{font-size:18px}}
 /* 남은 경우의 수 */
 .cnt{display:inline-flex;align-items:center;gap:6px;background:#0b1f14;border:2px solid var(--line);border-radius:999px;padding:4px 12px;font-size:15px;margin-top:10px}
 .cnt b{font-family:"Black Han Sans";font-weight:400;font-size:22px;color:var(--yellow)}
@@ -291,6 +312,39 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
   </details>
 </section>
 
+<!-- DEMO (선생님 vs 컴퓨터) -->
+<section id="demo" class="screen">
+  <div class="dm-head">
+    <h1 style="margin:0;font-size:34px;text-align:left">숫자 야구 <span>시연</span> <small class="muted" style="font-family:'Noto Sans KR';font-size:16px">선생님 vs 컴퓨터</small></h1>
+    <div class="row dm-opts">
+      <label class="muted">단계 <select id="dmLv"></select></label>
+      <label class="muted">컴퓨터 실력 <select id="dmAi"><option value="weak">약함 · 아무 숫자나</option><option value="normal" selected>보통 · 가능한 숫자 중에서</option><option value="strong">강함 · 가장 잘 줄이는 숫자</option></select></label>
+      <button class="btn-ghost" onclick="demoStart()">처음부터</button>
+    </div>
+  </div>
+  <div class="coach" id="coach"><div class="coach-face">🧢</div><div class="coach-text" id="coachText"></div></div>
+  <div class="dm-grid">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">👩‍🏫 선생님</h2><span class="pill secret-box" id="dmSecretPill" onclick="dmToggleSecret()"></span></div>
+      <div class="status" id="dmStatus" style="margin-top:10px"></div>
+      <div class="card lastres" id="dmLast" style="display:none;margin:8px 0"></div>
+      <div id="dmPad"></div>
+      <h2 class="h2s" style="margin-top:16px">선생님의 추측 <span class="muted" style="font-family:'Noto Sans KR';font-size:14px">컴퓨터의 숫자를 맞혀요</span></h2>
+      <ul class="log" id="dmMyLog"></ul>
+      <div class="legend" id="dmLegend" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">🤖 컴퓨터</h2><span class="pill" id="dmCpuState">준비 중</span></div>
+      <h2 class="h2s" style="margin-top:14px">컴퓨터의 추측 <span class="muted" style="font-family:'Noto Sans KR';font-size:14px">선생님의 숫자를 맞혀요</span></h2>
+      <ul class="log" id="dmCpuLog"></ul>
+      <details class="fold" id="dmThinkFold" open style="margin-top:14px">
+        <summary>💭 컴퓨터의 생각 <span class="muted">선생님 숫자로 가능한 후보</span></summary>
+        <div id="dmThink" style="margin-top:10px"></div>
+      </details>
+    </div>
+  </div>
+</section>
+
 <!-- OFFLINE SETUP -->
 <section id="offSetup" class="screen">
   <h2>인터넷 없이 하기</h2>
@@ -423,6 +477,7 @@ $('myName').addEventListener('change',()=>{try{localStorage.setItem('nb-name',$(
 /* =========================================================
    수업 연결 (교사용 페이지와 연결: 결과 보고 + 멈춤)
 ========================================================= */
+const DEMO = (()=>{ try{ return new URLSearchParams(location.search).has('demo'); }catch(e){ return false; } })();
 const CL={peer:null, conn:null, code:null, retry:null, status:'대기 중', paused:false};
 // 탭마다 다른 번호 (새로고침해도 같은 탭이면 유지)
 let deviceId; try{ deviceId=sessionStorage.getItem('nb-tab'); if(!deviceId){ deviceId=Math.random().toString(36).slice(2,12); sessionStorage.setItem('nb-tab',deviceId);} }catch(e){ deviceId=Math.random().toString(36).slice(2,12); }
@@ -473,7 +528,7 @@ function updateGate(){
   document.querySelectorAll('.needs-class').forEach(b=>b.disabled=!CL.connected);
   const ob=$('offBtn'); ob.disabled=!CL.offlineAllowed; ob.textContent=CL.offlineAllowed?'인터넷 없이 시작':'🔒 선생님이 허용하면 열려요';
   // 연결이 끊기면 3초 뒤 화면을 막음 (허용된 인터넷 없이 하기는 예외)
-  const block = !CL.connected && !$('home').classList.contains('on') && !(inOffline()&&CL.offlineAllowed);
+  const block = !DEMO && !CL.connected && !$('home').classList.contains('on') && !(inOffline()&&CL.offlineAllowed);
   clearTimeout(gateTimer);
   if(!block) $('gateOv').classList.remove('on');
   else if(!$('gateOv').classList.contains('on')) gateTimer=setTimeout(()=>{ if(!CL.connected && !$('home').classList.contains('on') && !(inOffline()&&CL.offlineAllowed)) $('gateOv').classList.add('on'); },3000);
@@ -488,6 +543,7 @@ function setOfflineAllowed(on){
 function setPause(on,msg){ CL.paused=on; $('pauseOv').classList.toggle('on',on); if(msg) $('pauseMsg').textContent=msg; }
 $('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}));
 (function initClass(){
+  if(DEMO) return;   // 시연 모드는 수업 연결 없이 동작
   let code=null;
   try{ const q=new URLSearchParams(location.search).get('c'); if(q&&/^\d{4}$/.test(q)) code=q; }catch(e){}
   if(!code){ try{ code=localStorage.getItem('nb-class'); }catch(e){} }
@@ -614,6 +670,7 @@ function submitQuiz(){
 
 /* ---------- 화면 전환 ---------- */
 function go(id){
+  if(DEMO){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id==='demo')); return; }
   const offId = id==='offSetup'||id==='offPlay';
   if(offId && !CL.offlineAllowed){ toast('선생님이 허용해야 열려요'); return; }
   if(id!=='home' && !offId && !CL.connected){ toast('먼저 수업 코드로 연결하세요'); id='home'; }
@@ -1029,6 +1086,127 @@ function renderOff(){
 function confirmLeave(){
   showOverlay(`<h2>게임을 끝낼까요?</h2><p class="note">기록이 모두 지워져요.</p><div class="row" style="margin-top:12px"><button class="btn-ghost" onclick="hideOverlay()">계속하기</button><button class="btn-r" onclick="OFF=null;leaveToHome()">끝내기</button></div>`);
 }
+/* =========================================================
+   시연 모드: 선생님 vs 컴퓨터 (프로젝터용, 인터넷·수업 연결 필요 없음)
+========================================================= */
+let DM=null, dmPad=null;
+function coach(html){ $('coachText').innerHTML=html; }
+function dmToggleSecret(){ if(!DM||!DM.mySecret) return; DM.show=!DM.show; dmRender(); }
+function demoInit(){
+  document.body.classList.add('demo-mode');
+  document.title='숫자 야구 시연';
+  $('dmLv').innerHTML=Object.values(LEVELS).map(l=>`<option value="${l.key}">${l.name} (${l.desc})</option>`).join('');
+  $('dmLv').onchange=demoStart; $('dmAi').onchange=()=>{ if(DM) DM.ai=$('dmAi').value; };
+  go('demo'); demoStart();
+}
+function demoStart(){
+  const lv=LEVELS[$('dmLv').value];
+  DM={lv, ai:$('dmAi').value, mySecret:null, cpuSecret:null, rounds:[], over:false, show:false, cpuRemain:allCands(lv), myRemain:allCands(lv), busy:false};
+  hideOverlay(); $('overlayCard').style.maxWidth='';
+  $('dmLegend').innerHTML=legendHTML(lv);
+  coach(`<b>① 비밀 숫자 정하기</b><br>먼저 선생님의 비밀 숫자를 정해요. <b>${lv.min}~${lv.max}</b> 중에서 <b>서로 다른 숫자 ${lv.len}개</b>! 화면에는 ●로 가려지니 학생들은 볼 수 없어요.`);
+  dmPad=makeKeypad($('dmPad'), lv, {okText:'비밀 숫자로 정하기', mask:true, onSubmit:v=>{ dmSetSecret(v); return false; }});
+  dmRender();
+}
+function dmSetSecret(v){
+  const lv=DM.lv; DM.mySecret=v;
+  const all=allCands(lv); DM.cpuSecret=all[Math.floor(Math.random()*all.length)];
+  dmPad=makeKeypad($('dmPad'), lv, {okText:'추측하기', onSubmit:g=>dmGuess(g)});
+  coach(`<b>② 대결 시작!</b><br>컴퓨터도 몰래 비밀 숫자를 정했어요. 이제 <b>서로 상대의 숫자를 먼저 맞히는 쪽</b>이 이겨요. 한 회에 한 번씩 <b>동시에</b> 추측해요.<br>👉 학생들에게 물어보세요: <b>“첫 추측으로 무엇을 부를까요?”</b>`);
+  dmRender();
+}
+function dmCpuPick(){
+  const lv=DM.lv, used=new Set(DM.rounds.map(r=>r.cpuG.join('')));
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  if(DM.ai==='weak') return pick(allCands(lv).filter(c=>!used.has(c.join(''))));
+  if(DM.ai==='strong' && DM.rounds.length>0) return bestGuess(lv, DM.cpuRemain).g;
+  return pick(DM.cpuRemain.filter(c=>!used.has(c.join('')))) || pick(DM.cpuRemain);
+}
+function dmGuess(g){
+  if(DM.over||DM.busy) return false;
+  if(DM.rounds.some(r=>r.myG.join('')===g.join(''))){ toast('이미 불렀던 숫자예요'); return false; }
+  DM.busy=true; dmPad.setDisabled(true); dmRender();
+  setTimeout(()=>{
+    const lv=DM.lv, cpuG=dmCpuPick();
+    const myH=judge(DM.cpuSecret,g,lv), cpuH=judge(DM.mySecret,cpuG,lv);
+    const prevCpu=DM.cpuRemain.length, prevMy=DM.myRemain.length;
+    DM.cpuRemain=filterCands(DM.cpuRemain,cpuG,cpuH,lv);
+    DM.myRemain=filterCands(DM.myRemain,g,myH,lv);
+    DM.rounds.push({myG:g,myH,cpuG,cpuH,prevCpu,prevMy,cpuLeft:DM.cpuRemain.length,myLeft:DM.myRemain.length});
+    const n=DM.rounds.length, iWin=isWin(myH,lv), cWin=isWin(cpuH,lv);
+    DM.busy=false;
+    if(iWin||cWin||n>=MAX_ROUNDS){ DM.over=true; DM.result=[iWin,cWin,n]; }
+    dmCoachAfter(n); dmRender();
+    if(DM.over) setTimeout(dmShowResult,1200); else dmPad.setDisabled(false);
+  }, 900);
+  return true;
+}
+/* 첫 결과에서는 숫자 하나하나 읽는 법을 설명 */
+function explainFirst(g,h,lv){
+  if(lv.mode==='sb'){
+    const t = (h.s===0&&h.b===0) ? '<b>아웃</b> — 부른 숫자가 비밀 숫자에 하나도 없다는 뜻이에요.'
+      : `<b>${h.s}S ${h.b}B</b> — 숫자와 자리가 모두 맞은 것이 <b>${h.s}개</b>(스트라이크), 숫자는 있지만 자리가 다른 것이 <b>${h.b}개</b>(볼)예요. <b>어느 숫자인지는 알려 주지 않아요!</b>`;
+    return `<b>③ 결과 읽기</b><br>${g.join('')}을(를) 불렀더니 ${t}`;
+  }
+  const word={O:'숫자·자리 모두 맞음',A:'숫자는 있는데 자리가 다름',X:'없는 숫자'};
+  return `<b>③ 결과 읽기</b><br>`+g.map((d,i)=>`<span class="hl-${h[i]}">${d}</span> ${word[h[i]]}`).join(' &nbsp;·&nbsp; ')+`<br><span style="font-size:18px">노랑 = 숫자·자리 맞음 · 파랑 = 숫자만 맞음 · 회색 = 없는 숫자</span>`;
+}
+function dmCoachAfter(n){
+  const lv=DM.lv, r=DM.rounds[n-1];
+  if(DM.over){ coach(`<b>🏁 경기 끝!</b> 결과를 함께 확인해요. <b>[📉 복기]</b>에서 경우의 수가 어떻게 줄었는지도 볼 수 있어요.<br>이제 <b>여러분 차례</b>! 수업 코드로 접속해서 친구와 대결해 보세요.`); return; }
+  if(n===1){ coach(explainFirst(r.myG,r.myH,lv)); return; }
+  if(n===2){ coach(`<b>④ 컴퓨터는 어떻게 추리할까?</b><br>오른쪽 <b>💭 컴퓨터의 생각</b>을 보세요. 결과와 맞지 않는 후보를 지워서 <b>${allCands(lv).length}가지 → ${r.cpuLeft}가지</b>로 줄였어요.<br>👉 “우리도 후보를 지워 가며 고르면 더 빨리 맞힐 수 있을까요?”`); return; }
+  if(n===3){ coach(`<b>⑤ 좋은 추측이란?</b><br>선생님 쪽 남은 후보는 <b>${r.prevMy}가지 → ${r.myLeft}가지</b>로 줄었어요. 후보를 <b>많이 줄이는 추측</b>이 좋은 추측이에요.<br>👉 “다음엔 무엇을 부르면 후보가 가장 많이 줄어들까요?”`); return; }
+  coach(`<b>${n+1}회</b> · 선생님 쪽 남은 후보 <b>${r.myLeft}가지</b>, 컴퓨터 쪽 남은 후보 <b>${r.cpuLeft}가지</b>. 누가 먼저 맞힐까요?`);
+}
+function dmThinkHTML(){
+  if(!DM.mySecret) return '<p class="muted">선생님이 비밀 숫자를 정하면 시작해요.</p>';
+  const lv=DM.lv, total=allCands(lv).length, left=DM.cpuRemain.length;
+  let h=`<div class="row" style="align-items:flex-end;gap:12px"><span class="think-n">${left}</span><span style="padding-bottom:6px">가지 남음 <span class="muted">(처음 ${total}가지)</span></span></div>`;
+  if(lv.len===2){
+    const ds=digitsOf(lv), keep=new Set(DM.cpuRemain.map(c=>c.join('')));
+    h+=`<div class="cand" style="grid-template-columns:repeat(${ds.length+1},1fr)"><div class="hd" style="font-size:12px">십＼일</div>${ds.map(d=>`<div class="hd">${d}</div>`).join('')}`;
+    for(const a of ds){ h+=`<div class="hd">${a}</div>`; for(const b of ds){ if(a===b){ h+='<div class="no"></div>'; continue; } const k=''+a+b; h+=`<div class="${keep.has(k)?'on':'off'}">${k}</div>`; } }
+    h+='</div>';
+  } else if(left<=60){
+    h+=`<div class="think-list">${DM.cpuRemain.map(c=>`<span>${c.join('')}</span>`).join('')}</div>`;
+  } else h+=`<p class="muted" style="margin-top:8px">후보가 60가지 이하로 줄면 목록을 보여 줄게요.</p>`;
+  return h;
+}
+function dmRender(){
+  const lv=DM.lv;
+  $('dmSecretPill').textContent = DM.mySecret ? `내 숫자: ${DM.show?DM.mySecret.join(''):'●'.repeat(lv.len)} ${DM.show?'🙈':'👁'}` : '비밀 숫자 정하는 중';
+  $('dmStatus').textContent = !DM.mySecret ? '비밀 숫자를 정하세요' : DM.over ? '경기 종료' : `${DM.rounds.length+1}회: 컴퓨터의 숫자를 추측해 보세요`;
+  $('dmCpuState').textContent = !DM.mySecret ? '기다리는 중' : DM.over ? '경기 끝' : DM.busy ? '🤔 생각 중…' : (DM.rounds.length?'다음 추측 준비 ✔':'비밀 숫자 정함 ✔');
+  const last=DM.rounds[DM.rounds.length-1];
+  if(last){
+    $('dmLast').style.display='block';
+    $('dmLast').innerHTML=`<div class="lr-title">${DM.rounds.length}회 결과</div><div class="lr-main">${tilesHTML(last.myG,last.myH,lv,'lg')}</div><div class="lr-msg">${hintWords(last.myH,lv)}</div>${countHTML(last.prevMy,last.myLeft)}`;
+  } else $('dmLast').style.display='none';
+  $('dmMyLog').innerHTML = DM.rounds.map((r,i)=>`<li class="${i===DM.rounds.length-1?'latest':''}"><span class="n">${i+1}회</span>${tilesHTML(r.myG,r.myH,lv)}<span class="left">→ <b>${r.myLeft}</b>가지</span></li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
+  $('dmCpuLog').innerHTML = DM.rounds.map((r,i)=>`<li class="${i===DM.rounds.length-1?'latest':''}"><span class="n">${i+1}회</span>${tilesHTML(r.cpuG,r.cpuH,lv)}<span class="left">→ <b>${r.cpuLeft}</b>가지</span></li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
+  $('dmThink').innerHTML=dmThinkHTML();
+}
+function dmShowResult(){
+  const [iWin,cWin,n]=DM.result;
+  const title = iWin&&cWin ? '무승부!' : iWin ? '선생님 승리! 🎉' : cWin ? '컴퓨터 승리 🤖' : '무승부';
+  $('overlayCard').style.maxWidth='';
+  showOverlay(`<div class="result-title">${title}</div><p>${n}회 경기</p>
+    <p class="muted" style="margin-top:8px">선생님 숫자 <b style="color:var(--yellow);font-size:22px">${DM.mySecret.join('')}</b> · 컴퓨터 숫자 <b style="color:var(--yellow);font-size:22px">${DM.cpuSecret.join('')}</b></p>
+    <button class="btn-full" onclick="dmReview()">📉 복기: 경우의 수가 어떻게 줄었을까?</button>
+    <button class="btn-y btn-full" onclick="demoStart()">한 판 더</button>
+    <button class="btn-ghost btn-full" onclick="hideOverlay()">기록 보기</button>`);
+}
+function dmReview(){
+  const lv=DM.lv, total=allCands(lv).length;
+  const side=(key,gk,hk)=>DM.rounds.map((r,i)=>`<div class="rv-row"><div class="rv-top"><span class="rv-n">${i+1}회</span>${tilesHTML(r[gk],r[hk],lv,'sm')}</div><div class="bar-wrap"><div class="bar-bg"><div class="bar" style="width:${Math.max(.8,r[key]/total*100)}%"></div></div><span><b>${i?DM.rounds[i-1][key]:total}</b> → <b>${r[key]}</b>가지</span></div></div>`).join('');
+  showOverlay(`<h2>📉 복기</h2><p class="note">처음 가능한 비밀 숫자는 <b style="color:var(--yellow)">${total}가지</b>. 누가 후보를 더 빨리 줄였을까요?</p>
+    <div class="rv" style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><b>👩‍🏫 선생님</b>${side('myLeft','myG','myH')}</div><div><b>🤖 컴퓨터</b>${side('cpuLeft','cpuG','cpuH')}</div></div>
+    <button class="btn-y btn-full" onclick="dmShowResult()">돌아가기</button>`);
+  $('overlayCard').style.maxWidth='820px';
+}
+if(DEMO) demoInit();
+
 </script>
 </body>
 </html>

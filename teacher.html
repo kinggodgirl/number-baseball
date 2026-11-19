@@ -81,6 +81,7 @@ button.tile{cursor:pointer}
 .cands{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .cands span{font-family:"Black Han Sans";font-size:17px;background:#1c3326;border-radius:6px;padding:1px 7px}
 .warn{color:#ffb4a2}
+.btnlink{display:inline-block;text-decoration:none;font-weight:700;font-size:16px;padding:10px 14px;border-radius:12px;background:var(--chalk);color:var(--board)}
 .seg{display:inline-flex;background:#0b1f14;border:2px solid var(--line);border-radius:12px;padding:3px;gap:3px}
 .seg button{background:transparent;color:var(--chalk);padding:6px 14px;font-size:15px;border-radius:9px}
 .seg button.sel{background:var(--yellow);color:var(--board)}
@@ -105,7 +106,7 @@ button.tile{cursor:pointer}
       <h2>수업 코드</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-end">
         <div class="code" id="codeShow">····</div>
-        <div class="row"><button class="btn-y" onclick="bigCode()">📺 크게 보기</button><button class="btn-ghost" onclick="askNewCode()">새 코드 만들기</button></div>
+        <div class="row"><a class="btnlink" id="demoLink" target="_blank" rel="noopener" title="새 탭에서 열려요. 프로젝터에 띄우고 선생님이 컴퓨터와 대결하며 사용법을 보여 주세요.">🎬 시연 (선생님 vs 컴퓨터)</a><button class="btn-y" onclick="bigCode()">📺 크게 보기</button><button class="btn-ghost" onclick="askNewCode()">새 코드 만들기</button></div>
       </div>
       <div class="link" id="linkShow"></div>
       <div class="row">
@@ -309,7 +310,7 @@ function studentURL(){
   const base=location.href.replace(/[?#].*$/,'').replace(/teacher\.html$/,'');
   return base+'?c='+code;
 }
-function showCode(){ $('codeShow').textContent=code; $('linkShow').textContent=studentURL(); }
+function showCode(){ $('codeShow').textContent=code; $('linkShow').textContent=studentURL(); $('demoLink').href=studentURL().replace(/\?c=\d+$/,'?demo=1'); }
 
 function openPeer(attempt=0){
   try{ peer&&peer.destroy(); }catch(e){}
