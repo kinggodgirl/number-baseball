@@ -551,6 +551,7 @@ function classConnect(code){
     c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on);
       if(d.t==='count') setShowCount(!!d.on);
       if(d.t==='points') setPoints(d);
+      if(d.t==='home') teacherSendHome();
       if(d.t==='quiz'||d.t==='quizReveal'||d.t==='quizClose') onQuiz(d); });
     c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
@@ -710,15 +711,22 @@ function submitQuiz(){
   QZ.my= isSecret ? v : String(+v); classSend({t:'quizAns', id:QZ.id, v:QZ.my, name:myName(), dev:deviceId}); renderQuiz();
 }
 
+/* 선생님이 '학생 화면을 처음 화면으로' 초기화했을 때 */
+function teacherSendHome(){
+  if(G){ send({t:'bye'}); }
+  OFF=null; QZ=null; $('quizOv').classList.remove('on');
+  if(!$('home').classList.contains('on') || G){ leaveToHome(); toast('선생님이 처음 화면으로 돌렸어요'); }
+}
 /* =========================================================
    포인트 (장부는 교사용 페이지에 있음, 여기서는 표시와 걸기만)
 ========================================================= */
-const PT={on:false, bal:null, max:50};
+const PT={on:false, bal:null, max:50, lastOpp:null, streak:0, limit:3};
 function ptActive(){ return PT.on && PT.bal!=null; }
 function ptCap(){ return Math.max(0, Math.min(PT.bal||0, PT.max)); }
 function setPoints(d){
   const was=PT.bal;
   PT.on=!!d.on; PT.bal = d.bal==null ? null : Math.max(0, d.bal|0); PT.max=Math.max(0, d.max|0);
+  PT.lastOpp = d.lastOpp==null ? null : String(d.lastOpp).slice(0,10); PT.streak=Math.max(0,d.streak|0); PT.limit=Math.max(1,(d.limit|0)||3);
   renderPoints();
   if(G && !G.myReady) renderBet();
   const el=$('ptAfter'); if(el && was!=null && PT.bal!=null) el.innerHTML=`내 포인트 <b>${PT.bal}</b>`;
@@ -728,17 +736,21 @@ function renderPoints(){
   $('ptHome').style.display=on?'inline-flex':'none'; $('ptHome').innerHTML=`🪙 내 포인트 <b>${PT.bal}</b>`;
   $('ptGame').style.display=on?'':'none'; $('ptGame').textContent=`🪙 ${PT.bal}`;
 }
+/* 같은 상대와 이미 정한 판수만큼 연속으로 했으면 이번 판은 연습 경기 */
+function isPractice(){ return !!G && PT.lastOpp===G.oppName && PT.streak>=PT.limit; }
+function stakeOf(){ return (G.bet!=null && G.oppBet!=null) ? Math.min(G.bet, G.oppBet) : null; }
 function renderBet(){
   const box=$('betBox');
   if(!G || !ptActive()){ box.innerHTML=''; if(G) G.bet=0; return; }
+  if(isPractice()){ G.bet=0; box.innerHTML=`<div class="bet locked">🏳 ${esc(G.oppName)}님과 ${PT.limit}판 연속으로 했어요. 이번 판은 <b>연습 경기</b>(포인트 없음)예요.<br><span class="muted">다른 친구와 대결하면 다시 포인트를 걸 수 있어요.</span></div>`; return; }
   const cap=ptCap();
   if(G.bet==null) G.bet=Math.min(10,cap);
   G.bet=Math.max(0,Math.min(G.bet,cap));
-  if(G.myReady){ box.innerHTML=`<div class="bet locked">🪙 <b>${G.bet}</b>포인트를 걸었어요${G.oppBet!=null?` · ${esc(G.oppName)}님은 <b>${G.oppBet}</b>포인트`:''}</div>`; return; }
+  if(G.myReady){ const st=stakeOf(); box.innerHTML=`<div class="bet locked">🪙 나는 <b>${G.bet}</b> · ${esc(G.oppName)}님은 ${G.oppBet!=null?`<b>${G.oppBet}</b>`:'고르는 중…'}${st!=null?`<br>→ 이번 판은 둘 다 <b style="color:var(--yellow);font-size:22px">${st}</b>포인트를 걸어요`:''}</div>`; return; }
   box.innerHTML=`<div class="bet"><div>🪙 이번 판에 몇 포인트 걸까요? <span class="muted">(내 포인트 ${PT.bal} · 한 판 최대 ${PT.max})</span></div>
     <div class="bet-row"><button onclick="betStep(-5)">−</button><span class="bet-n">${G.bet}</span><button onclick="betStep(5)">＋</button></div>
     <div class="quick"><button class="btn-ghost" onclick="betSet(0)">0</button><button class="btn-ghost" onclick="betSet(10)">10</button><button class="btn-ghost" onclick="betSet(Math.floor(ptCap()/2))">절반</button><button class="btn-ghost" onclick="betSet(ptCap())">최대 ${cap}</button></div>
-    <p class="muted" style="margin-top:8px">이기면 <b>+${G.bet}</b>, 지면 <b>−${G.bet}</b>, 비기면 그대로예요.</p></div>`;
+    <p class="muted" style="margin-top:8px;line-height:1.5">두 사람이 고른 금액 중 <b>작은 쪽</b>으로 똑같이 걸어요.<br>이기면 상대에게서 받고, 지면 상대에게 줘요. 비기면 그대로!</p></div>`;
 }
 function betStep(d){ G.bet=(G.bet||0)+d; renderBet(); }
 function betSet(v){ G.bet=v; renderBet(); }
@@ -941,7 +953,8 @@ function newOnlineGame(lv, oppName){
   $('secretWait').textContent='';
   renderBet();
   makeKeypad($('secretPad'), lv, {okText:'이 숫자로 정하기', mask:true, onSubmit:v=>{
-    if(ptActive()) G.bet=Math.max(0,Math.min(G.bet||0,ptCap())); else G.bet=0;
+    G.practiceLocked = ptActive() && isPractice();
+    if(ptActive() && !G.practiceLocked) G.bet=Math.max(0,Math.min(G.bet||0,ptCap())); else G.bet=0;
     mySecret=v; G.myReady=true; send({t:'ready', bet:G.bet}); renderBet();
     $('secretPad').innerHTML=`<p class="center" style="font-family:'Black Han Sans';font-size:40px;letter-spacing:10px;color:var(--yellow)">${'●'.repeat(lv.len)}</p>`;
     $('secretWait').textContent=G.oppReady?'':`${G.oppName}님이 숫자를 정하는 중…`;
@@ -1012,9 +1025,9 @@ function renderGame(){
   // 두 사람 진행 상태
   const meDone=!!r.myG, oppDone=!!r.oppG;
   $('plMe').className='pl'+(meDone&&!G.over?' done':''); $('plOpp').className='pl'+(oppDone&&!G.over?' done':'');
-  const bt=b=> (b!=null && (b>0 || ptActive())) ? ` · 🪙${b}` : '';
-  $('plMe').innerHTML=`${esc(myName())}${bt(G.bet)}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
-  $('plOpp').innerHTML=`${esc(G.oppName)}${bt(G.oppBet)}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
+  const stk=stakeOf(), bt=()=> (ptActive() && !isPractice() && stk!=null && !G.practiceLocked) ? ` · 🪙${stk}` : '';
+  $('plMe').innerHTML=`${esc(myName())}${bt()}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
+  $('plOpp').innerHTML=`${esc(G.oppName)}${bt()}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
   const st=$('gameStatus');
   if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">결과 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
   else if(!meDone){
@@ -1051,8 +1064,9 @@ function showResult(iWin, theyWin, n){
   G.meAgain=false;
   const outcome = iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw';
   if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome, rounds:n, level:G.lv.name, myBet:G.bet||0, oppBet:G.oppBet||0}); classStatus(`경기 끝 (vs ${G.oppName})`); }
-  const b=G.bet||0, delta = outcome==='win'?b : outcome==='lose'?-b : 0;
-  const ptLine = (ptActive() || b>0) ? `<div class="pt-res ${delta>0?'up':delta<0?'down':'even'}">🪙 ${delta>0?'+'+delta:delta<0?'−'+(-delta):'±0'} 포인트</div><p class="muted" id="ptAfter">포인트 정산 중…</p>` : '';
+  const b = G.practiceLocked ? 0 : (stakeOf()||0), delta = outcome==='win'?b : outcome==='lose'?-b : 0;
+  const ptLine = !ptActive() ? '' : G.practiceLocked ? `<div class="pt-res even">🏳 연습 경기 · 포인트 없음</div>`
+    : `<div class="pt-res ${delta>0?'up':delta<0?'down':'even'}">🪙 ${delta>0?'+'+delta:delta<0?'−'+(-delta):'±0'} 포인트</div><p class="muted" id="ptAfter">포인트 정산 중…</p>`;
   showOverlay(`<p class="muted">${esc(myName())} VS ${esc(G.oppName)}</p><div class="result-title">${title}</div><p>${msg}</p>${ptLine}
     <p class="muted" style="margin-top:10px">내 숫자 <b style="color:var(--yellow);font-size:22px">${mySecret.join('')}</b> · ${esc(G.oppName)}의 숫자 <b id="oppSecretShow" style="color:var(--yellow);font-size:22px">${G.oppSecret||'…'}</b></p>
     <p class="muted" id="againMsg" style="margin-top:12px;min-height:20px">${G.oppAgain?`${esc(G.oppName)}님이 한 판 더 하고 싶어해요!`:''}</p>
