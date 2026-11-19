@@ -490,16 +490,41 @@ function classJoinClick(){
   if(CL.code===code && (CL.connected || Date.now()-(CL.started||0)<8000)){ classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); return; } // 이미 연결(중)이면 이름만 갱신
   classConnect(code);
 }
-function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
+function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); clearInterval(CL.watch); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
 function classConnect(code){
   if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
   classDisconnect(); CL.code=code; CL.started=Date.now();
-  setClassState('수업에 연결하는 중…');
+  CL.tries=(CL.lastCode===code?(CL.tries||0):0)+1; CL.lastCode=code;
+  const tryTxt = CL.tries>1 ? ` · ${CL.tries}번째 시도` : '';
+  setClassState('① 연결 서버에 접속하는 중…'+tryTxt);
   const p=new Peer(PEER_OPTS); CL.peer=p;
   const retryLater=(msg)=>{ setClassState(msg); clearTimeout(CL.retry); CL.retry=setTimeout(()=>{ if(CL.code===code) classConnect(code); },6000); };
+  // 단계별 진단: 어느 단계에서 멈췄는지 화면에 알려 줌 (15초 안에 연결 안 되면 실패 처리 후 다시 시도)
+  const D={t0:Date.now(), server:false};
+  clearInterval(CL.watch);
+  CL.watch=setInterval(async ()=>{
+    if(CL.peer!==p || CL.connected){ clearInterval(CL.watch); return; }
+    const pc=CL.conn&&CL.conn.peerConnection, sec=Math.round((Date.now()-D.t0)/1000);
+    if(D.server){
+      if(pc && pc.remoteDescription) setClassState(`③ 선생님 컴퓨터와 직접 연결하는 중… ${sec}초${tryTxt}`);
+      else setClassState(`② 선생님 페이지를 찾는 중… ${sec}초${tryTxt}`);
+    }
+    if(Date.now()-D.t0 < 15000) return;
+    clearInterval(CL.watch);
+    let msg;
+    if(!D.server) msg='❌ ① 연결 서버에 접속하지 못했어요. 패드의 인터넷(와이파이)을 확인하세요. 학교 인터넷이 연결 서버를 막고 있을 수도 있어요.';
+    else if(!(pc && pc.remoteDescription)) msg=`❌ ② 선생님 페이지(수업 ${code})가 응답하지 않아요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`;
+    else {
+      let types=new Set(); try{ (await pc.getStats()).forEach(r=>{ if(r.type==='local-candidate') types.add(r.candidateType); }); }catch(e){}
+      msg=`❌ ③ 선생님 컴퓨터와 직접 연결이 안 돼요. 학교 와이파이가 기기끼리 연결하는 것을 막고 있는 것 같아요. (진단: 서버 ✔ · 선생님 찾음 ✔ · 직접 연결 ✖ · 바깥 주소 ${types.has('srflx')?'✔':'✖'})`;
+    }
+    CL.lastFail=msg; try{ CL.conn&&CL.conn.close(); }catch(e){} CL.conn=null;
+    retryLater(msg+' — 잠시 후 다시 시도해요');
+  },500);
   p.on('open',()=>{
+    D.server=true; setClassState('② 선생님 페이지를 찾는 중…'+tryTxt);
     const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
-    c.on('open',()=>{ CL.connected=true; CL.lastPong=Date.now(); setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate();
+    c.on('open',()=>{ CL.connected=true; CL.tries=0; clearInterval(CL.watch); CL.lastPong=Date.now(); setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate();
       // 생존 신호: 4초마다 보내고, 12초 넘게 답이 없으면 끊긴 것으로 보고 다시 연결
       clearInterval(CL.hb); CL.hb=setInterval(()=>{
         if(CL.conn!==c){ clearInterval(CL.hb); return; }
@@ -513,7 +538,7 @@ function classConnect(code){
     c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
   });
   p.on('error',err=>{
-    if(err.type==='peer-unavailable'){ setPause(false); retryLater(`수업 ${code}을(를) 찾지 못했어요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`); return; }
+    if(err.type==='peer-unavailable'){ clearInterval(CL.watch); setPause(false); retryLater(`수업 ${code}을(를) 찾지 못했어요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`); return; }
     if(!CL.conn||!CL.conn.open) retryLater('수업 연결 오류. 다시 연결하는 중…');
   });
 }

@@ -177,6 +177,7 @@ button.tile{cursor:pointer}
   <div class="grid">
     <div class="card">
       <h2>접속한 학생 <span class="badge" id="stuCount">0명</span></h2>
+      <div id="failBox" class="err" style="display:none;margin:0 0 10px;line-height:1.5"></div>
       <ul class="students" id="stuList"><li class="empty">아직 연결된 학생이 없어요</li></ul>
     </div>
     <div class="card">
@@ -320,7 +321,10 @@ function openPeer(attempt=0){
   peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'; $('connBadge').style.color='#5ee08a'; });
   peer.on('connection',c=>{
     c._key='tmp-'+c.peer;   // 학생이 기기 번호(hi)를 보내기 전 임시 이름
+    // 연결 신호는 왔는데 12초 안에 직접 연결이 안 되면 '실패한 시도'로 셈 (학교망 차단 진단용)
+    setTimeout(()=>{ if(!c.open && !c._opened){ failTries.push(Date.now()); renderFail(); } },12000);
     c.on('open',()=>{
+      c._opened=true;
       students.set(c._key,{conn:c,name:'(이름 없음)',dev:null,status:'',online:true,seen:Date.now()});
       c.send({t:'pause',on:paused,msg:$('pauseMsg').value});
       c.send({t:'offline',on:offlineAllowed});
@@ -398,6 +402,15 @@ function togglePause(){
   b.textContent= paused ? '▶ 다시 시작하기 (지금 멈춘 상태)' : '✋ 모든 학생 화면 멈추기';
 }
 
+const failTries=[];
+function renderFail(){
+  const now=Date.now(); while(failTries.length && now-failTries[0]>300000) failTries.shift();   // 최근 5분
+  const n=failTries.length, box=$('failBox');
+  if(!n){ box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML=`⚠ 최근 5분 동안 <b>${n}번</b>, 학생 기기가 이 페이지를 찾았지만 <b>직접 연결에 실패</b>했어요.<br>학교 와이파이가 기기끼리 연결하는 것을 막고 있을 가능성이 커요. (선생님 PC와 패드가 같은 와이파이인지 확인해 보세요)`;
+}
+setInterval(renderFail,30000);
 function bcast(o){ for(const s of students.values()){ if(s.online) try{ s.conn.send(o); }catch(e){} } }
 function toggleCount(){
   showCount=!showCount; bcast({t:'count',on:showCount});
