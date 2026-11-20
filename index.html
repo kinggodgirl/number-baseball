@@ -147,6 +147,8 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--red);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;display:none;z-index:20;max-width:90%;text-align:center}
 .toast.on{display:block}
 @media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
+.cpu-link{background:transparent;color:var(--chalk);opacity:.55;font-weight:400;font-size:14px;padding:6px 10px;text-decoration:underline;text-underline-offset:3px}
+.cpu-link:disabled{opacity:.25}
 /* 포인트 */
 .ptchip{display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:#2a2a10;border:2px solid var(--yellow);border-radius:999px;padding:6px 14px;font-weight:700}
 .ptchip b{font-family:"Black Han Sans";font-weight:400;font-size:24px;color:var(--yellow)}
@@ -245,8 +247,27 @@ body.demo-mode .wrap{max-width:1280px}
     <h2>규칙</h2>
     <div class="legend" id="homeLegend"></div>
     <div class="example">예) 정답이 <b>352</b>일 때 <b>325</b>를 부르면 → <span id="exHint"></span></div>
-    <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 결과가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>중상·상</b> 단계는 진짜 야구 규칙! 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
+    <p class="note">· 비밀 숫자에는 같은 숫자를 두 번 쓸 수 없어요.<br>· 두 사람이 <b>동시에</b> 한 번씩 추측하고, 힌트가 같이 공개돼요.<br>· 같은 회에 둘 다 맞히면 무승부! 10회 안에 못 맞혀도 무승부.<br>· <b>중상·상</b> 단계는 진짜 야구 규칙! 자리별 힌트 없이 스트라이크(S)·볼(B) 개수만 알려 줘요.</p>
   </div>
+  <p class="center" style="margin-top:22px"><button class="cpu-link needs-class" onclick="go('cpuSetup')">🤖 같이 할 친구가 없나요? 컴퓨터와 연습하기</button></p>
+</section>
+
+<!-- CPU SETUP (컴퓨터와 연습) -->
+<section id="cpuSetup" class="screen">
+  <h2>🤖 컴퓨터와 연습하기</h2>
+  <div class="card">
+    <label class="small">난이도 고르기</label>
+    <div class="levels" data-group="cpu"></div>
+    <label class="small" style="margin-top:16px">컴퓨터 실력</label>
+    <div class="levels" id="cpuAiBox">
+      <button class="lv" data-ai="weak"><b>약함</b><small>아무 숫자나 불러요</small></button>
+      <button class="lv sel" data-ai="normal"><b>보통</b><small>가능한 숫자 중에서 골라요</small></button>
+      <button class="lv" data-ai="strong" style="grid-column:span 2"><b>강함</b><small>후보를 가장 많이 줄이는 숫자를 골라요</small></button>
+    </div>
+    <button class="btn-y btn-full" onclick="startCpuGame()">시작하기</button>
+    <p class="muted center" style="margin-top:10px">컴퓨터와의 대결은 연습 경기예요. 포인트는 걸리지 않아요.</p>
+  </div>
+  <button class="btn-ghost btn-full" onclick="leaveToHome()">처음으로</button>
 </section>
 
 <!-- HOST -->
@@ -396,10 +417,10 @@ body.demo-mode .wrap{max-width:1280px}
   </div>
   <div id="recordPane" style="display:none">
     <div class="card">
-      <p class="center muted">① 내가 부른 숫자 입력 → ② 상대 기기가 보여 준 결과 입력</p>
+      <p class="center muted">① 내가 부른 숫자 입력 → ② 상대 기기가 보여 준 힌트 입력</p>
       <div id="recordPad"></div>
       <div id="recordHint" style="display:none">
-        <p class="center" style="margin-top:6px">상대 기기가 보여 준 결과는?</p>
+        <p class="center" style="margin-top:6px">상대 기기가 보여 준 힌트는?</p>
         <div id="recordHintInput"></div>
         <button class="btn-y btn-full" onclick="saveRecord()">기록하기</button>
       </div>
@@ -440,7 +461,7 @@ const LEVELS = {
 const MAX_ROUNDS = 10;
 const ID_PREFIX = 'kgg-numbaseball-v1-';
 const $ = id => document.getElementById(id);
-let selLevel = {host:'easy', off:'easy'};
+let selLevel = {host:'easy', off:'easy', cpu:'easy'};
 
 function digitsOf(lv){const a=[];for(let d=lv.min;d<=lv.max;d++)a.push(d);return a;}
 function judge(secret, guess, lv){
@@ -742,6 +763,7 @@ function stakeOf(){ return (G.bet!=null && G.oppBet!=null) ? Math.min(G.bet, G.o
 function renderBet(){
   const box=$('betBox');
   if(!G || !ptActive()){ box.innerHTML=''; if(G) G.bet=0; return; }
+  if(G.cpu){ G.bet=0; box.innerHTML='<div class="bet locked">🤖 컴퓨터와의 대결은 <b>연습 경기</b>예요 (포인트 없음)</div>'; return; }
   if(isPractice()){ G.bet=0; box.innerHTML=`<div class="bet locked">🏳 ${esc(G.oppName)}님과 ${PT.limit}판 연속으로 했어요. 이번 판은 <b>연습 경기</b>(포인트 없음)예요.<br><span class="muted">다른 친구와 대결하면 다시 포인트를 걸 수 있어요.</span></div>`; return; }
   const cap=ptCap();
   if(G.bet==null) G.bet=Math.min(10,cap);
@@ -770,7 +792,7 @@ function showOverlay(html){ $('overlayCard').innerHTML=html; $('overlay').classL
 function hideOverlay(){ $('overlay').classList.remove('on'); }
 
 /* 난이도 선택 버튼 */
-document.querySelectorAll('.levels').forEach(box=>{
+document.querySelectorAll('.levels[data-group]').forEach(box=>{
   const g = box.dataset.group;
   Object.values(LEVELS).forEach(lv=>{
     const b=document.createElement('button'); b.className='lv'+(selLevel[g]===lv.key?' sel':'');
@@ -903,7 +925,7 @@ function joinRoom(){
     clearTimeout(connectTimer); fail('연결 오류가 생겼어요 ('+err.type+').');
   });
 }
-function send(o){ try{ conn&&conn.open&&conn.send(o); }catch(e){} }
+function send(o){ if(G&&G.cpu){ cpuRecv(o); return; } try{ conn&&conn.open&&conn.send(o); }catch(e){} }
 
 function bindConn(hostLv){
   conn.on('open',()=>{ if(!isHost) send({t:'hello', name:myName()}); });
@@ -942,18 +964,19 @@ function onData(d, hostLv){
   }
 }
 
-function newOnlineGame(lv, oppName){
+function newOnlineGame(lv, oppName, cpu){
   gameNo++;
-  G={gid:sessId+'-'+gameNo, bet:null, oppBet:null, lv, oppName, myReady:false, oppReady:false, started:false, over:false, rounds:[], cur:0, meAgain:false, oppAgain:false, left:false};
+  G={gid:sessId+'-'+gameNo, cpu:cpu||null, bet:null, oppBet:null, lv, oppName, myReady:false, oppReady:false, started:false, over:false, rounds:[], cur:0, meAgain:false, oppAgain:false, left:false};
   mySecret=null; secretShown=false; hideOverlay();
-  classStatus(`대전 중 (vs ${oppName})`);
+  classStatus(cpu ? `🤖 컴퓨터와 연습 중 (${cpu.ai==='weak'?'약함':cpu.ai==='strong'?'강함':'보통'})` : `대전 중 (vs ${oppName})`);
+  if(cpu) cpuNewGame();
   $('vsPill').textContent=`${myName()} VS ${oppName}`;
   $('lvPill').textContent=`난이도 ${lv.name}`;
   $('secretRule').textContent=`${lv.min}~${lv.max} 중에서 서로 다른 숫자 ${lv.len}개`;
   $('secretWait').textContent='';
   renderBet();
   makeKeypad($('secretPad'), lv, {okText:'이 숫자로 정하기', mask:true, onSubmit:v=>{
-    G.practiceLocked = ptActive() && isPractice();
+    G.practiceLocked = ptActive() && (isPractice() || !!G.cpu);
     if(ptActive() && !G.practiceLocked) G.bet=Math.max(0,Math.min(G.bet||0,ptCap())); else G.bet=0;
     mySecret=v; G.myReady=true; send({t:'ready', bet:G.bet}); renderBet();
     $('secretPad').innerHTML=`<p class="center" style="font-family:'Black Han Sans';font-size:40px;letter-spacing:10px;color:var(--yellow)">${'●'.repeat(lv.len)}</p>`;
@@ -962,12 +985,64 @@ function newOnlineGame(lv, oppName){
   }});
   go('secret');
 }
-function restartOnline(){ newOnlineGame(G.lv, G.oppName); }
+/* =========================================================
+   컴퓨터 상대: 다른 기기와 똑같은 메시지를 주고받는 가짜 상대
+========================================================= */
+let cpuAi='normal';
+document.querySelectorAll('#cpuAiBox .lv').forEach(b=>b.onclick=()=>{ cpuAi=b.dataset.ai; document.querySelectorAll('#cpuAiBox .lv').forEach(x=>x.classList.toggle('sel',x===b)); });
+function startCpuGame(){
+  if(!CL.connected){ toast('먼저 수업 코드로 연결하세요'); return; }
+  cleanupNet(); isHost=true; sessId='cpu'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); gameNo=0;
+  newOnlineGame(LEVELS[selLevel.cpu], '🤖 컴퓨터', {ai:cpuAi});
+}
+function cpuNewGame(){
+  const lv=G.lv, all=allCands(lv);
+  G.cpu.secret=all[Math.floor(Math.random()*all.length)];
+  G.cpu.remain=all; G.cpu.myG={}; G.cpu.myH={}; G.cpu.userG={}; G.cpu.round=0; G.cpu.timer=null;
+  setTimeout(()=>{ if(G&&G.cpu) onData({t:'ready', bet:0}); }, 700+Math.random()*900);
+}
+function cpuPick(){
+  const c=G.cpu, lv=G.lv, used=new Set(Object.values(c.myG).map(g=>g.join(''))), pick=a=>a[Math.floor(Math.random()*a.length)];
+  if(c.ai==='weak') return pick(allCands(lv).filter(x=>!used.has(x.join(''))));
+  if(c.ai==='strong' && c.round>0) return bestGuess(lv,c.remain).g;
+  return pick(c.remain.filter(x=>!used.has(x.join('')))) || pick(c.remain);
+}
+/* 컴퓨터는 앞 회가 끝나야(내 힌트를 받고, 학생의 추측도 받아야) 다음 회를 추측함 */
+function cpuMaybeGuess(){
+  const c=G&&G.cpu; if(!c || G.over || c.timer || !G.started) return;
+  const r=c.round, prevDone = r===0 || (c.myH[r-1]!=null && c.userG[r-1]!=null);
+  if(!prevDone || r>=MAX_ROUNDS) return;
+  c.timer=setTimeout(()=>{
+    c.timer=null; if(!G||G.cpu!==c||c.dead||G.over||!G.started||!mySecret) return;
+    const g=cpuPick(); c.myG[r]=g; c.round=r+1;
+    onData({t:'guess', r, g});
+  }, 1200+Math.random()*1800);
+}
+function cpuRecv(o){
+  const c=G.cpu; if(!c) return;
+  if(o.t==='guess'){            // 학생의 추측 → 컴퓨터가 자기 비밀 숫자로 힌트를 만들어 돌려줌
+    c.userG[o.r]=o.g;
+    setTimeout(()=>{ if(G&&G.cpu===c) onData({t:'hint', r:o.r, h:judge(c.secret,o.g,G.lv)}); }, 300);
+    cpuMaybeGuess();
+  } else if(o.t==='hint'){      // 학생 기기가 컴퓨터 추측에 준 힌트 → 후보 줄이기
+    const g=c.myG[o.r]; if(g){ c.myH[o.r]=o.h; c.remain=filterCands(c.remain,g,o.h,G.lv); }
+    cpuMaybeGuess();
+  } else if(o.t==='reveal'){
+    setTimeout(()=>{ if(G&&G.cpu===c) onData({t:'reveal', s:c.secret}); }, 200);
+  } else if(o.t==='again'){
+    setTimeout(()=>{ if(G&&G.cpu===c) onData({t:'again'}); }, 500);
+  }
+}
+function restartOnline(){
+  let cpu=null; if(G.cpu){ clearTimeout(G.cpu.timer); G.cpu.dead=true; cpu={ai:G.cpu.ai}; }   // 지난 판 컴퓨터의 예약된 추측이 새 판에 끼어들지 않게
+  newOnlineGame(G.lv, G.oppName, cpu);
+}
 function maybeStart(){
   if(!G||!G.myReady) { if(G&&G.oppReady&&!G.myReady) $('secretWait').textContent=`${G.oppName}님은 준비 완료! 숫자를 정하세요`; return; }
   if(!G.oppReady) return;
   if(G.started) return;
   G.started=true; startOnlineGame();
+  if(G.cpu) cpuMaybeGuess();
 }
 let guessPad=null;
 function startOnlineGame(){
@@ -1029,7 +1104,7 @@ function renderGame(){
   $('plMe').innerHTML=`${esc(myName())}${bt()}<small>${G.over?'경기 끝':meDone?'✔ 냈어요':'생각 중…'}</small>`;
   $('plOpp').innerHTML=`${esc(G.oppName)}${bt()}<small>${G.over?'경기 끝':oppDone?'✔ 냈어요':'생각 중…'}</small>`;
   const st=$('gameStatus');
-  if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">결과 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
+  if(G.over){ st.innerHTML='경기 종료 <button class="btn-y" style="font-size:16px;padding:6px 12px;margin-left:6px" onclick="showResult(...G.result)">승패 보기</button>'; st.className='status'; guessPad&&guessPad.setDisabled(true); }
   else if(!meDone){
     st.textContent = oppDone ? `⏱ ${G.oppName}님은 벌써 냈어요!` : (G.cur===last ? '마지막 회! 신중하게 고르세요' : `${G.cur+1}회: 추측할 숫자를 입력하세요`);
     st.className='status'; guessPad&&guessPad.setDisabled(false);
@@ -1039,7 +1114,7 @@ function renderGame(){
   const li = G.over ? G.cur : G.cur-1, lr=G.rounds[li];
   if(lr && lr.myH && lr.oppH){
     $('lastRes').style.display='block';
-    $('lastRes').innerHTML=`<div class="lr-title">${li+1}회 결과</div>
+    $('lastRes').innerHTML=`<div class="lr-title">${li+1}회 힌트</div>
       <div class="lr-main">${tilesHTML(lr.myG,lr.myH,lv,'lg')}</div>
       <div class="lr-msg">${hintWords(lr.myH,lv)}</div>
       ${CL.showCount ? (()=>{ const cs=myCounts(); return countHTML(cs[li], cs[li+1]); })() : ''}
@@ -1049,7 +1124,7 @@ function renderGame(){
   const mine=[], theirs=[];
   G.rounds.forEach((x,i)=>{
     const done = x.myH && x.oppH, cls = i===li ? ' class="latest"' : '';
-    if(x.myG) mine.push(`<li${cls}><span class="n">${i+1}회</span>${tilesHTML(x.myG, done?x.myH:null, lv)}${done?(CL.showCount?`<span class="left">→ <b>${myCounts()[i+1]}</b>가지</span>`:''):'<span class="wait-t">결과 대기</span>'}</li>`);
+    if(x.myG) mine.push(`<li${cls}><span class="n">${i+1}회</span>${tilesHTML(x.myG, done?x.myH:null, lv)}${done?(CL.showCount?`<span class="left">→ <b>${myCounts()[i+1]}</b>가지</span>`:''):'<span class="wait-t">힌트 대기</span>'}</li>`);
     if(x.oppG && (done || G.over)) theirs.push(`<li><span class="n">${i+1}회</span>${tilesHTML(x.oppG,x.oppH,lv,'sm')}</li>`);
   });
   $('myLog').innerHTML = mine.reverse().join('') || '<li class="empty">아직 없어요. 첫 추측을 해 보세요!</li>';
@@ -1058,12 +1133,12 @@ function renderGame(){
 function showResult(iWin, theyWin, n){
   let title, msg;
   if(iWin&&theyWin){ title='무승부!'; msg=`${n}회에 두 사람 모두 맞혔어요.`; }
-  else if(iWin){ title='승리! 🎉'; msg=`${n}회 만에 ${G.oppName}님의 숫자를 맞혔어요.`; }
-  else if(theyWin){ title='아쉬운 패배'; msg=`${G.oppName}님이 ${n}회 만에 내 숫자를 맞혔어요.`; }
+  else if(iWin){ title='승리! 🎉'; msg = G.cpu ? `${n}회 만에 컴퓨터의 숫자를 맞혔어요.` : `${n}회 만에 ${G.oppName}님의 숫자를 맞혔어요.`; }
+  else if(theyWin){ title='아쉬운 패배'; msg = G.cpu ? `컴퓨터가 ${n}회 만에 내 숫자를 맞혔어요.` : `${G.oppName}님이 ${n}회 만에 내 숫자를 맞혔어요.`; }
   else { title='무승부'; msg=`${MAX_ROUNDS}회 안에 아무도 못 맞혔어요.`; }
   G.meAgain=false;
   const outcome = iWin&&theyWin?'draw':iWin?'win':theyWin?'lose':'draw';
-  if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome, rounds:n, level:G.lv.name, myBet:G.bet||0, oppBet:G.oppBet||0}); classStatus(`경기 끝 (vs ${G.oppName})`); }
+  if(!G.reported){ G.reported=true; classSend({t:'result', gid:G.gid, me:myName(), opp:G.oppName, outcome, rounds:n, level:G.lv.name, myBet:G.bet||0, oppBet:G.oppBet||0, cpu:!!G.cpu}); classStatus(`경기 끝 (vs ${G.oppName})`); }
   const b = G.practiceLocked ? 0 : (stakeOf()||0), delta = outcome==='win'?b : outcome==='lose'?-b : 0;
   const ptLine = !ptActive() ? '' : G.practiceLocked ? `<div class="pt-res even">🏳 연습 경기 · 포인트 없음</div>`
     : `<div class="pt-res ${delta>0?'up':delta<0?'down':'even'}">🪙 ${delta>0?'+'+delta:delta<0?'−'+(-delta):'±0'} 포인트</div><p class="muted" id="ptAfter">포인트 정산 중…</p>`;
@@ -1131,7 +1206,7 @@ function startOffline(lv, secret){
     $('judgeResult').innerHTML=`<p class="muted" style="margin-bottom:10px">상대의 ${n}번째 추측</p>${tilesHTML(v,h,lv,'lg')}<div class="lr-msg" style="margin-top:12px;font-weight:700;font-size:20px">${hintWords(h,lv)}</div>${win?`<div class="result-title" style="margin-top:10px">정답!</div><p>상대가 ${n}번 만에 맞혔어요</p>`:''}`;
     renderOff(); return true;
   }});
-  recordPad=makeKeypad($('recordPad'), lv, {okText:'다음: 결과 입력', onSubmit:v=>{
+  recordPad=makeKeypad($('recordPad'), lv, {okText:'다음: 힌트 입력', onSubmit:v=>{
     if(OFF.records.some(x=>x.g.join('')===v.join(''))){ toast('이미 추측했던 숫자예요'); return false; }
     beginRecord(v); return true; }});
   makeMemo($('offMemoPad'), lv);
@@ -1241,16 +1316,16 @@ function explainFirst(g,h,lv){
   if(lv.mode==='sb'){
     const t = (h.s===0&&h.b===0) ? '<b>아웃</b> — 부른 숫자가 비밀 숫자에 하나도 없다는 뜻이에요.'
       : `<b>${h.s}S ${h.b}B</b> — 숫자와 자리가 모두 맞은 것이 <b>${h.s}개</b>(스트라이크), 숫자는 있지만 자리가 다른 것이 <b>${h.b}개</b>(볼)예요. <b>어느 숫자인지는 알려 주지 않아요!</b>`;
-    return `<b>③ 결과 읽기</b><br>${g.join('')}을(를) 불렀더니 ${t}`;
+    return `<b>③ 힌트 읽기</b><br>${g.join('')}을(를) 불렀더니 ${t}`;
   }
   const word={O:'숫자·자리 모두 맞음',A:'숫자는 있는데 자리가 다름',X:'없는 숫자'};
-  return `<b>③ 결과 읽기</b><br>`+g.map((d,i)=>`<span class="hl-${h[i]}">${d}</span> ${word[h[i]]}`).join(' &nbsp;·&nbsp; ')+`<br><span style="font-size:18px">노랑 = 숫자·자리 맞음 · 파랑 = 숫자만 맞음 · 회색 = 없는 숫자</span>`;
+  return `<b>③ 힌트 읽기</b><br>`+g.map((d,i)=>`<span class="hl-${h[i]}">${d}</span> ${word[h[i]]}`).join(' &nbsp;·&nbsp; ')+`<br><span style="font-size:18px">노랑 = 숫자·자리 맞음 · 파랑 = 숫자만 맞음 · 회색 = 없는 숫자</span>`;
 }
 function dmCoachAfter(n){
   const lv=DM.lv, r=DM.rounds[n-1];
-  if(DM.over){ coach(`<b>🏁 경기 끝!</b> 결과를 함께 확인해요. <b>[📉 복기]</b>에서 경우의 수가 어떻게 줄었는지도 볼 수 있어요.<br>이제 <b>여러분 차례</b>! 수업 코드로 접속해서 친구와 대결해 보세요.`); return; }
+  if(DM.over){ coach(`<b>🏁 경기 끝!</b> 승패를 함께 확인해요. <b>[📉 복기]</b>에서 경우의 수가 어떻게 줄었는지도 볼 수 있어요.<br>이제 <b>여러분 차례</b>! 수업 코드로 접속해서 친구와 대결해 보세요.`); return; }
   if(n===1){ coach(explainFirst(r.myG,r.myH,lv)); return; }
-  if(n===2){ coach(`<b>④ 컴퓨터는 어떻게 추리할까?</b><br>오른쪽 <b>💭 컴퓨터의 생각</b>을 보세요. 결과와 맞지 않는 후보를 지워서 <b>${allCands(lv).length}가지 → ${r.cpuLeft}가지</b>로 줄였어요.<br>👉 “우리도 후보를 지워 가며 고르면 더 빨리 맞힐 수 있을까요?”`); return; }
+  if(n===2){ coach(`<b>④ 컴퓨터는 어떻게 추리할까?</b><br>오른쪽 <b>💭 컴퓨터의 생각</b>을 보세요. 힌트와 맞지 않는 후보를 지워서 <b>${allCands(lv).length}가지 → ${r.cpuLeft}가지</b>로 줄였어요.<br>👉 “우리도 후보를 지워 가며 고르면 더 빨리 맞힐 수 있을까요?”`); return; }
   if(n===3){ coach(`<b>⑤ 좋은 추측이란?</b><br>선생님 쪽 남은 후보는 <b>${r.prevMy}가지 → ${r.myLeft}가지</b>로 줄었어요. 후보를 <b>많이 줄이는 추측</b>이 좋은 추측이에요.<br>👉 “다음엔 무엇을 부르면 후보가 가장 많이 줄어들까요?”`); return; }
   coach(`<b>${n+1}회</b> · 선생님 쪽 남은 후보 <b>${r.myLeft}가지</b>, 컴퓨터 쪽 남은 후보 <b>${r.cpuLeft}가지</b>. 누가 먼저 맞힐까요?`);
 }
@@ -1276,7 +1351,7 @@ function dmRender(){
   const last=DM.rounds[DM.rounds.length-1];
   if(last){
     $('dmLast').style.display='block';
-    $('dmLast').innerHTML=`<div class="lr-title">${DM.rounds.length}회 결과</div><div class="lr-main">${tilesHTML(last.myG,last.myH,lv,'lg')}</div><div class="lr-msg">${hintWords(last.myH,lv)}</div>${countHTML(last.prevMy,last.myLeft)}`;
+    $('dmLast').innerHTML=`<div class="lr-title">${DM.rounds.length}회 힌트</div><div class="lr-main">${tilesHTML(last.myG,last.myH,lv,'lg')}</div><div class="lr-msg">${hintWords(last.myH,lv)}</div>${countHTML(last.prevMy,last.myLeft)}`;
   } else $('dmLast').style.display='none';
   $('dmMyLog').innerHTML = DM.rounds.map((r,i)=>`<li class="${i===DM.rounds.length-1?'latest':''}"><span class="n">${i+1}회</span>${tilesHTML(r.myG,r.myH,lv)}<span class="left">→ <b>${r.myLeft}</b>가지</span></li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';
   $('dmCpuLog').innerHTML = DM.rounds.map((r,i)=>`<li class="${i===DM.rounds.length-1?'latest':''}"><span class="n">${i+1}회</span>${tilesHTML(r.cpuG,r.cpuH,lv)}<span class="left">→ <b>${r.cpuLeft}</b>가지</span></li>`).reverse().join('') || '<li class="empty">아직 없어요</li>';

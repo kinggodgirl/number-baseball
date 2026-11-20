@@ -230,8 +230,8 @@ button.tile{cursor:pointer}
 
   <div class="card" style="margin-top:14px">
     <h2>경기 기록 <span class="badge" id="gameCount">0경기</span></h2>
-    <div class="scroll"><table><thead><tr><th>시각</th><th>대전</th><th>결과</th><th>난이도</th><th class="num">회</th></tr></thead><tbody id="gameBody"></tbody></table></div>
-    <p class="muted" style="margin-top:6px">온라인 대전 결과만 자동으로 기록돼요. (인터넷 없이 하기 모드는 기록되지 않아요)</p>
+    <div class="scroll"><table><thead><tr><th>시각</th><th>대전</th><th>승패</th><th>난이도</th><th class="num">회</th></tr></thead><tbody id="gameBody"></tbody></table></div>
+    <p class="muted" style="margin-top:6px">온라인 대전 기록만 자동으로 남아요. (인터넷 없이 하기 모드는 기록되지 않아요)</p>
   </div>
 </div>
 
@@ -324,12 +324,12 @@ function sitCycle(i,j){ const o=['X','O','A']; const h=sit.rows[i].h; h[j]=o[(o.
 function sitAddRow(){ if(sit.rows.length>=6) return; sit.rows.push({g:'',h:blankHint(LEVELS[sit.lv])}); renderSit(); }
 function renderSitPrev(){
   const lv=LEVELS[sit.lv], rows=sitRows(), bad=sit.rows.length-rows.length;
-  if(!rows.length){ $('sPrev').innerHTML=`<span class="muted">추측 숫자(${lv.min}~${lv.max}, 서로 다른 ${lv.len}개)를 넣고 결과를 정하세요.</span>`; return; }
+  if(!rows.length){ $('sPrev').innerHTML=`<span class="muted">추측 숫자(${lv.min}~${lv.max}, 서로 다른 ${lv.len}개)를 넣고 힌트를 정하세요.</span>`; return; }
   const rem=remainOf(lv,rows), hide=$('qzHide').checked;
   let h= hide ? (rem.length? '✔ 낼 수 있는 상황이에요 <span class="muted">(화면 띄우기 모드라 정답은 가려 두었어요)</span>' : '')
               : `이 상황에서 가능한 비밀 숫자: <b>${rem.length}</b>가지 <span class="muted">(처음 ${allCands(lv).length}가지)</span>`;
   if(bad) h+=`<br><span class="warn">⚠ 숫자가 잘못된 줄 ${bad}개는 빼고 계산했어요.</span>`;
-  if(rem.length===0) h+=`<br><span class="warn">⚠ 이런 결과는 나올 수 없어요. 결과를 다시 확인하세요.</span>`;
+  if(rem.length===0) h+=`<br><span class="warn">⚠ 이런 힌트는 나올 수 없어요. 힌트를 다시 확인하세요.</span>`;
   else if(rem.length<=40 && !hide) h+=`<div class="cands">${rem.map(c=>`<span>${c.join('')}</span>`).join('')}</div>`;
   if(sit.kind==='secret' && rem.length!==1) h+=`<br><span class="warn">⚠ “비밀 숫자는?” 문제는 가능한 숫자가 1가지일 때만 낼 수 있어요.</span>`;
   $('sPrev').innerHTML=h;
@@ -453,7 +453,8 @@ function addResult(d){
   const outcome=['win','lose','draw'].includes(d.outcome)?d.outcome:'draw';
   const winner= outcome==='win'?me : outcome==='lose'?opp : null;
   const rec={gid,time:Date.now(),a:me,b:opp,winner,rounds:Math.max(1,Math.min(20,d.rounds|0)),level:String(d.level||'').slice(0,2)};
-  if(ptCfg.on){
+  if(d.cpu){ rec.cpu=true; }
+  else if(ptCfg.on){
     ptEnsure(me); ptEnsure(opp);
     // 같은 상대와 연속 몇 판째인지 (둘이 서로의 마지막 상대일 때만 이어짐)
     const pa=PAIR[me], pb=PAIR[opp];
@@ -507,7 +508,7 @@ function startQuiz(){
     const lv=LEVELS[sit.lv], rows=sitRows();
     if(!rows.length||rows.length!==sit.rows.length){ $('qzState').innerHTML='<span class="warn">추측 숫자를 모두 바르게 넣어 주세요.</span>'; return; }
     const rem=remainOf(lv,rows);
-    if(!rem.length){ $('qzState').innerHTML='<span class="warn">나올 수 없는 상황이에요. 결과를 확인하세요.</span>'; return; }
+    if(!rem.length){ $('qzState').innerHTML='<span class="warn">나올 수 없는 상황이에요. 힌트를 확인하세요.</span>'; return; }
     if(sit.kind==='secret'&&rem.length!==1){ $('qzState').innerHTML='<span class="warn">“비밀 숫자는?” 문제는 가능한 숫자가 1가지여야 해요.</span>'; return; }
     q = sit.kind==='secret' ? '이 상황에서 비밀 숫자는 무엇일까요?' : '이 상황에서 비밀 숫자로 가능한 것은 모두 몇 가지일까요?';
     ans = sit.kind==='secret' ? rem[0].join('') : String(rem.length);
@@ -563,6 +564,7 @@ function stats(){
   const m=new Map();
   const get=n=>{ if(!m.has(n)) m.set(n,{name:n,g:0,w:0,d:0,l:0,wr:0}); return m.get(n); };
   for(const r of shown()){
+    if(r.cpu) continue;   // 컴퓨터와의 연습 경기는 학생별 전적에서 뺌
     const A=get(r.a), B=get(r.b); A.g++; B.g++;
     if(!r.winner){ A.d++; B.d++; }
     else { const W=r.winner===r.a?A:B, L=r.winner===r.a?B:A; W.w++; L.l++; W.wr+=r.rounds; }
@@ -580,7 +582,7 @@ function renderRecords(){
   $('gameCount').textContent=rs.length+'경기'+(range==='today'?' (오늘)':' (전체)');
   $('gameBody').innerHTML = rs.length ? rs.slice().reverse().map(r=>{
     const t=new Date(r.time); const hh=String(t.getHours()).padStart(2,'0'), mm=String(t.getMinutes()).padStart(2,'0');
-    const pt = r.practice ? ' <span class="muted">(연습 경기 · 같은 상대 연속)</span>' : (r.da!=null) ? ` <span class="muted">(🪙 ${r.stake??Math.abs(r.da)} 걸기 · ${esc(r.a)} ${r.da>=0?'+':''}${r.da} · ${esc(r.b)} ${r.db>=0?'+':''}${r.db})</span>` : '';
+    const pt = r.cpu ? ' <span class="muted">(🤖 연습)</span>' : r.practice ? ' <span class="muted">(연습 경기 · 같은 상대 연속)</span>' : (r.da!=null) ? ` <span class="muted">(🪙 ${r.stake??Math.abs(r.da)} 걸기 · ${esc(r.a)} ${r.da>=0?'+':''}${r.da} · ${esc(r.b)} ${r.db>=0?'+':''}${r.db})</span>` : '';
     const res = (r.winner ? `<span class="win">${esc(r.winner)} 승</span>` : '<span class="draw">무승부</span>') + pt;
     return `<tr><td>${t.getMonth()+1}/${t.getDate()} ${hh}:${mm}</td><td>${esc(r.a)} vs ${esc(r.b)}</td><td>${res}</td><td>${esc(r.level)}</td><td class="num">${r.rounds}</td></tr>`; }).join('')
     : '<tr><td colspan="5" class="empty">아직 기록이 없어요</td></tr>';
@@ -588,7 +590,7 @@ function renderRecords(){
 
 function csvCell(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function downloadCSV(){
-  const lines=[['시각','학생1','학생2','결과','난이도','회']];
+  const lines=[['시각','학생1','학생2','승패','난이도','회']];
   for(const r of shown()){ const t=new Date(r.time); lines.push([t.toLocaleString('ko-KR'),r.a,r.b,r.winner?r.winner+' 승':'무승부',r.level,r.rounds]); }
   lines.push([]); lines.push(['이름','경기','승','무','패','승률(%)']);
   for(const s of stats()) lines.push([s.name,s.g,s.w,s.d,s.l,s.g?Math.round(s.w/s.g*100):0]);
