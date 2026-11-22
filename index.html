@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="turn-config.js"></script>
+<script src="problems.js"></script>
 <style>
 :root{
   --field:#1f5d3a; --field-dark:#16452b; --board:#0f2a1c; --chalk:#f6f3e8;
@@ -150,6 +151,12 @@ details.fold summary .muted{font-family:"Noto Sans KR";font-size:13px}
 @media (max-width:420px){.slot{width:54px;height:66px;font-size:40px}.key{font-size:26px}.cols{grid-template-columns:1fr}h1{font-size:38px}}
 .cpu-link{background:transparent;color:var(--chalk);opacity:.55;font-weight:400;font-size:14px;padding:6px 10px;text-decoration:underline;text-underline-offset:3px}
 .cpu-link:disabled{opacity:.25}
+/* 포인트 충전 문제 */
+.refill-btn{display:block;width:100%;margin-top:10px;background:#2a2a10;color:var(--yellow);border:2px dashed var(--yellow);font-size:16px}
+.math-fig{background:#fff;border-radius:12px;padding:8px;margin:10px 0}
+.math-q{font-size:18px;font-weight:900;line-height:1.55;margin:6px 0 12px}
+.math-q i{font-weight:400}
+.math-ex{background:#0b1f14;border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.6;margin-top:10px}
 /* 포인트 */
 .ptchip{display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:#2a2a10;border:2px solid var(--yellow);border-radius:999px;padding:6px 14px;font-weight:700}
 .ptchip b{font-family:"Black Han Sans";font-weight:400;font-size:24px;color:var(--yellow)}
@@ -229,6 +236,7 @@ body.demo-mode .wrap{max-width:1280px}
       <button class="btn-y" style="flex:1" onclick="classJoinClick()">연결</button>
     </div>
     <div id="ptHome" class="ptchip" style="display:none"></div>
+    <button id="refillBtn" class="refill-btn" style="display:none" onclick="openRefill()"></button>
     <p id="classState" class="muted" style="margin-top:8px">이름과 수업 코드를 넣고 [연결]을 눌러야 게임을 할 수 있어요</p>
   </div>
   <div class="card">
@@ -446,6 +454,7 @@ body.demo-mode .wrap{max-width:1280px}
 <div class="overlay" id="gateOv" style="z-index:25;background:rgba(10,20,15,.96)">
   <div class="card center"><div style="font-size:64px">🔌</div><h2>선생님과 연결이 끊겼어요</h2><p class="note">다시 연결하는 중이에요. 잠시 기다려 주세요.</p><button class="btn-ghost btn-full" onclick="leaveToHome()">처음 화면으로</button></div>
 </div>
+<div class="overlay" id="mathOv" style="z-index:27;background:rgba(10,20,15,.95)"><div class="card" id="mathCard" style="max-width:460px;width:100%"></div></div>
 <div class="overlay" id="quizOv" style="z-index:28;background:rgba(10,20,15,.95)"><div class="card center" id="quizCard"></div></div>
 <div class="overlay" id="pauseOv" style="z-index:30;background:rgba(10,20,15,.97)">
   <div class="center"><div style="font-size:90px">✋</div><div class="result-title" style="font-size:46px">잠깐 멈춤!</div><p id="pauseMsg" style="font-size:22px;margin-top:8px">선생님을 봐 주세요</p></div>
@@ -759,13 +768,15 @@ function teacherSendHome(){
 /* =========================================================
    포인트 (장부는 교사용 페이지에 있음, 여기서는 표시와 걸기만)
 ========================================================= */
-const PT={on:false, bal:null, max:50, lastOpp:null, streak:0, limit:3};
+const PT={on:false, bal:null, max:50, lastOpp:null, streak:0, limit:3, refill:60, reward:10};
 function ptActive(){ return PT.on && PT.bal!=null; }
 function ptCap(){ return Math.max(0, Math.min(PT.bal||0, PT.max)); }
 function setPoints(d){
   const was=PT.bal;
   PT.on=!!d.on; PT.bal = d.bal==null ? null : Math.max(0, d.bal|0); PT.max=Math.max(0, d.max|0);
   PT.lastOpp = d.lastOpp==null ? null : String(d.lastOpp).slice(0,10); PT.streak=Math.max(0,d.streak|0); PT.limit=Math.max(1,(d.limit|0)||3);
+  if(d.refill!=null) PT.refill=Math.max(0,d.refill|0); if(d.reward!=null) PT.reward=Math.max(0,d.reward|0);
+  if(MP && MP.waiting){ MP.waiting=false; renderMath(); }
   renderPoints();
   if(G && !G.myReady) renderBet();
   const el=$('ptAfter'); if(el && was!=null && PT.bal!=null) el.innerHTML=`내 포인트 <b>${PT.bal}</b>`;
@@ -774,6 +785,44 @@ function renderPoints(){
   const on=ptActive();
   $('ptHome').style.display=on?'inline-flex':'none'; $('ptHome').innerHTML=`🪙 내 포인트 <b>${PT.bal}</b>`;
   $('ptGame').style.display=on?'':'none'; $('ptGame').textContent=`🪙 ${PT.bal}`;
+  const can = on && PT.reward>0 && PT.bal<=PT.refill;
+  $('refillBtn').style.display=can?'block':'none';
+  $('refillBtn').textContent=`📐 포인트가 부족한가요? 수학 문제 풀고 +${PT.reward} 받기`;
+}
+/* ===== 포인트 충전 문제 (포인트가 기준 이하일 때만) ===== */
+let MP=null;   // {p: 문제, state:'ask'|'right'|'wrong', my}
+function refillAllowed(){ return ptActive() && PT.reward>0 && PT.bal<=PT.refill && CL.connected; }
+function openRefill(){
+  if(!refillAllowed()){ toast(`포인트가 ${PT.refill} 이하일 때만 받을 수 있어요`); return; }
+  if(typeof NB_makeProblem!=='function'){ toast('문제를 불러오지 못했어요'); return; }
+  MP={p:NB_makeProblem(), state:'ask', my:''}; renderMath(); $('mathOv').classList.add('on');
+}
+function closeMath(){ MP=null; $('mathOv').classList.remove('on'); }
+function renderMath(){
+  if(!MP) return; const p=MP.p, c=$('mathCard');
+  const head=`<div class="row" style="justify-content:space-between;align-items:center"><span class="pill">📐 ${esc(p.type)}</span><span class="pill">🪙 ${PT.bal}</span></div>`;
+  if(MP.state==='ask'){
+    c.innerHTML=`${head}<div class="math-fig">${p.svg}</div><div class="math-q">${p.q}</div>
+      <input type="text" id="mathIn" class="code" inputmode="numeric" maxlength="4" placeholder="?" style="font-size:40px;letter-spacing:4px">
+      <button class="btn-y btn-full" onclick="submitMath()">정답 확인</button>
+      <button class="btn-ghost btn-full" onclick="closeMath()">그만하기</button>`;
+    const inp=$('mathIn'); inp.addEventListener('input',()=>inp.value=inp.value.replace(/\D/g,'').slice(0,4)); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submitMath(); }); setTimeout(()=>inp.focus(),50);
+  } else {
+    const ok=MP.state==='right', more=refillAllowed();
+    c.innerHTML=`${head}<div class="math-fig">${p.svg}</div><div class="math-q">${p.q}</div>
+      <div class="center"><div class="result-title" style="font-size:40px">${ok?'정답! 🎉':'아쉬워요'}</div>
+      <p>${ok?`🪙 +${PT.reward} 포인트${MP.waiting?' <span class="muted">(정산 중…)</span>':` · 내 포인트 <b>${PT.bal}</b>`}`:`내 답 <b>${esc(MP.my)}</b> · 정답 <b style="color:var(--yellow)">${p.ans}</b>`}</p></div>
+      <div class="math-ex">💡 ${p.explain}</div>
+      ${more?'<button class="btn-y btn-full" onclick="openRefill()">다른 문제 풀기</button>':`<p class="muted center" style="margin-top:10px">${ok?`포인트가 ${PT.refill}보다 많아졌어요. 이제 대결하러 가요!`:''}</p>`}
+      <button class="btn-ghost btn-full" onclick="closeMath()">닫기</button>`;
+  }
+}
+function submitMath(){
+  const v=$('mathIn').value.trim(); if(!v){ toast('답을 입력하세요'); return; }
+  MP.my=v;
+  if(+v===MP.p.ans){ MP.state='right'; MP.waiting=true; classSend({t:'earn', type:MP.p.type}); }
+  else MP.state='wrong';
+  renderMath();
 }
 /* 같은 상대와 이미 정한 판수만큼 연속으로 했으면 이번 판은 연습 경기 */
 function isPractice(){ return !!G && PT.lastOpp===G.oppName && PT.streak>=PT.limit; }
