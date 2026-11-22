@@ -221,11 +221,15 @@ button.tile{cursor:pointer}
         <div class="seg" id="rangeSeg"><button class="sel" data-r="today">오늘</button><button data-r="all">전체</button></div>
         <div class="row">
           <button class="btn-ghost" onclick="downloadCSV()">CSV 내려받기</button>
+          <button class="btn-ghost" onclick="backupSave()" title="기록·포인트·설정을 파일 하나로 저장해요">💾 백업 저장</button>
+          <button class="btn-ghost" onclick="$('backupFile').click()" title="저장해 둔 백업 파일을 불러와요">📂 백업 불러오기</button>
+          <input type="file" id="backupFile" accept=".json,application/json" style="display:none">
           <button class="btn-ghost" onclick="askClear()">기록 지우기</button>
         </div>
       </div>
       <div class="scroll"><table><thead><tr><th>순위</th><th>이름</th><th class="num">경기</th><th class="num">승</th><th class="num">무</th><th class="num">패</th><th class="num">승률</th><th class="num">평균 회</th></tr></thead><tbody id="statBody"></tbody></table></div>
       <p class="muted" style="margin-top:6px">평균 회: 이긴 경기에서 몇 회 만에 맞혔는지의 평균 (작을수록 추리를 잘한 것)</p>
+      <p class="muted" id="backupInfo" style="margin-top:4px"></p>
     </div>
   </div>
 
@@ -664,6 +668,65 @@ $('ptStart').addEventListener('change',()=>{ ptCfg.start=ptNum('ptStart',100); p
 $('ptMax').addEventListener('change',()=>{ ptCfg.max=ptNum('ptMax',50); ptSave(); ptSendAll(); });
 $('ptLimit').addEventListener('change',()=>{ ptCfg.limit=Math.max(1,ptNum('ptLimit',3)); ptSave(); ptSendAll(); });
 renderPts();
+/* ===== 수업 상태 저장: 새로고침해도 멈춤·퀴즈·허용 설정이 그대로 이어지게 ===== */
+function saveState(){
+  LS.set('nb-t-state',{paused, pauseMsg:$('pauseMsg').value, offlineAllowed, showCount, qzMode,
+    quiz: quiz ? {id:quiz.id,q:quiz.q,ans:quiz.ans,exp:quiz.exp,revealed:quiz.revealed,sit:quiz.sit||null,cands:quiz.cands||null,answers:[...quiz.answers.entries()]} : null});
+}
+function restoreState(){
+  const st=LS.get('nb-t-state',null); if(!st) return;
+  if(typeof st.pauseMsg==='string') $('pauseMsg').value=st.pauseMsg.slice(0,40);
+  if(st.paused && !paused) togglePause();
+  if(st.offlineAllowed && !offlineAllowed) toggleOffline();
+  if(st.showCount && !showCount) toggleCount();
+  if(st.qzMode==='sit'){ const b=document.querySelector('#qzMode button[data-m=sit]'); if(b) b.click(); }
+  if(st.quiz && st.quiz.id){ const z=st.quiz; quiz={id:z.id,q:z.q,ans:String(z.ans),exp:z.exp||'',revealed:!!z.revealed,sit:z.sit,cands:z.cands,answers:new Map(Array.isArray(z.answers)?z.answers:[])}; }
+}
+// 상태가 바뀌는 함수들 뒤에 저장을 붙임
+['togglePause','toggleOffline','toggleCount','renderQuiz'].forEach(n=>{ const f=window[n]; window[n]=function(...a){ const r=f.apply(this,a); try{ saveState(); }catch(e){} return r; }; });
+$('pauseMsg').addEventListener('input',()=>{ try{ saveState(); }catch(e){} });
+document.querySelectorAll('#qzMode button').forEach(b=>b.addEventListener('click',()=>{ try{ saveState(); }catch(e){} }));
+
+/* ===== 실수로 닫기 방지 ===== */
+window.addEventListener('beforeunload',e=>{ if([...students.values()].some(x=>x.online && x.dev)){ e.preventDefault(); e.returnValue=''; } });
+
+/* ===== 백업 파일 저장 / 불러오기 ===== */
+function backupSave(){
+  saveState();
+  const data={app:'number-baseball', v:1, savedAt:new Date().toISOString(), code, records, PTS, PAIR, ptCfg, state:LS.get('nb-t-state',null)};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); const d=new Date(), pad=n=>String(n).padStart(2,'0');
+  a.href=URL.createObjectURL(blob); a.download=`숫자야구_백업_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  LS.set('nb-t-lastBackup',Date.now()); renderBackupInfo();
+}
+let pendingBackup=null;
+$('backupFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d || d.app!=='number-baseball' || !Array.isArray(d.records)) throw new Error('bad');
+    pendingBackup=d;
+    const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR'):'알 수 없음';
+    ov(`<h2 style="justify-content:center">📂 백업을 불러올까요?</h2><p class="muted" style="line-height:1.6">저장한 때: ${esc(when)}<br>경기 기록 ${d.records.length}경기 · 포인트 학생 ${Object.keys(d.PTS||{}).length}명</p>
+      <p class="muted">지금 이 페이지의 기록·포인트·설정은 백업 내용으로 <b>바뀌어요</b>.</p>
+      <div class="row" style="margin-top:14px;justify-content:center"><button class="btn-ghost" onclick="pendingBackup=null;ovClose()">취소</button><button class="btn-y" onclick="backupApply()">불러오기</button></div>`);
+  }catch(err){ ov(`<h2 style="justify-content:center">불러올 수 없는 파일이에요</h2><p class="muted">‘💾 백업 저장’으로 만든 파일을 골라 주세요.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn-y" onclick="ovClose()">확인</button></div>`); }
+});
+function backupApply(){
+  const d=pendingBackup; if(!d) return;
+  LS.set('nb-t-records',d.records); LS.set('nb-t-points',d.PTS||{}); LS.set('nb-t-pair',d.PAIR||{});
+  if(d.ptCfg) LS.set('nb-t-ptcfg',d.ptCfg);
+  if(d.state) LS.set('nb-t-state',d.state);
+  if(d.code && /^\d{4}$/.test(d.code)) LS.set('nb-t-code',d.code);
+  location.reload();
+}
+function renderBackupInfo(){
+  const t=LS.get('nb-t-lastBackup',null), el=$('backupInfo'); if(!el) return;
+  el.textContent = t ? `마지막 백업: ${new Date(t).toLocaleString('ko-KR')}` : '아직 백업한 적이 없어요. 수업이 끝나면 💾 백업 저장을 눌러 두세요.';
+}
+
+restoreState(); renderQuiz(); renderBackupInfo();
 showCode(); renderStudents(); renderRecords(); ICE_READY.then(()=>openPeer());
 </script>
 </body>
