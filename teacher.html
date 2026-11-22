@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="turn-config.js"></script>
 <style>
 :root{--field:#1f5d3a;--board:#0f2a1c;--chalk:#f6f3e8;--yellow:#ffd23f;--red:#e4572e;--blue:#3a86ff;--line:rgba(246,243,232,.18)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -247,6 +248,22 @@ button.tile{cursor:pointer}
 <script>
 const ID_PREFIX='kgg-numbaseball-v1-';
 const PEER_OPTS={debug:0, config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]}};
+
+/* 중계 서버(TURN): turn-config.js에 키가 있으면 자격 증명을 받아 연결 후보에 추가 */
+let TURN_ON=false;
+const ICE_READY=(async()=>{
+  const t=window.NB_TURN||{};
+  if(!t.appName||!t.apiKey||!/^[a-z0-9-]+$/i.test(t.appName)) return false;
+  try{
+    const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),5000);
+    const r=await fetch(`https://${t.appName}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(t.apiKey)}`,{signal:ctl.signal});
+    clearTimeout(tm);
+    if(!r.ok) return false;
+    const list=await r.json();
+    if(Array.isArray(list)&&list.length){ PEER_OPTS.config.iceServers=PEER_OPTS.config.iceServers.concat(list); TURN_ON=true; return true; }
+  }catch(e){}
+  return false;
+})();
 let range='today';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -379,7 +396,7 @@ function openPeer(attempt=0){
   if(typeof Peer==='undefined'){ $('connBadge').textContent='연결 프로그램을 불러오지 못함'; $('peerErr').textContent='인터넷 연결을 확인하고 새로고침해 주세요.'; return; }
   $('peerErr').textContent=''; $('connBadge').textContent='연결 준비 중…';
   peer=new Peer(ID_PREFIX+'class-'+code,PEER_OPTS);
-  peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'; $('connBadge').style.color='#5ee08a'; });
+  peer.on('open',()=>{ $('connBadge').textContent='● 학생 연결 받는 중'+(TURN_ON?' · 중계 서버 ✔':''); $('connBadge').style.color='#5ee08a'; });
   peer.on('connection',c=>{
     c._key='tmp-'+c.peer;   // 학생이 기기 번호(hi)를 보내기 전 임시 이름
     // 연결 신호는 왔는데 12초 안에 직접 연결이 안 되면 '실패한 시도'로 셈 (학교망 차단 진단용)
@@ -647,7 +664,7 @@ $('ptStart').addEventListener('change',()=>{ ptCfg.start=ptNum('ptStart',100); p
 $('ptMax').addEventListener('change',()=>{ ptCfg.max=ptNum('ptMax',50); ptSave(); ptSendAll(); });
 $('ptLimit').addEventListener('change',()=>{ ptCfg.limit=Math.max(1,ptNum('ptLimit',3)); ptSave(); ptSendAll(); });
 renderPts();
-showCode(); renderStudents(); renderRecords(); openPeer();
+showCode(); renderStudents(); renderRecords(); ICE_READY.then(()=>openPeer());
 </script>
 </body>
 </html>

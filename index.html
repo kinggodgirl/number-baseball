@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="turn-config.js"></script>
 <style>
 :root{
   --field:#1f5d3a; --field-dark:#16452b; --board:#0f2a1c; --chalk:#f6f3e8;
@@ -478,6 +479,22 @@ const SYM = {
 const PEER_OPTS = {debug:0, config:{iceServers:[
   {urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}
 ]}};
+
+/* 중계 서버(TURN): turn-config.js에 키가 있으면 자격 증명을 받아 연결 후보에 추가 */
+let TURN_ON=false;
+const ICE_READY=(async()=>{
+  const t=window.NB_TURN||{};
+  if(!t.appName||!t.apiKey||!/^[a-z0-9-]+$/i.test(t.appName)) return false;
+  try{
+    const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),5000);
+    const r=await fetch(`https://${t.appName}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(t.apiKey)}`,{signal:ctl.signal});
+    clearTimeout(tm);
+    if(!r.ok) return false;
+    const list=await r.json();
+    if(Array.isArray(list)&&list.length){ PEER_OPTS.config.iceServers=PEER_OPTS.config.iceServers.concat(list); TURN_ON=true; return true; }
+  }catch(e){}
+  return false;
+})();
 function hintHTML(h, lv){
   if(h==null) return '<span class="muted">…</span>';
   if(lv.mode==='sb'){
@@ -528,7 +545,8 @@ function classJoinClick(){
   classConnect(code);
 }
 function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); clearInterval(CL.watch); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
-function classConnect(code){
+function classConnect(code){ ICE_READY.then(()=>classConnectNow(code)); }
+function classConnectNow(code){
   if(typeof Peer==='undefined'){ setClassState('인터넷 연결을 확인해 주세요.'); return; }
   classDisconnect(); CL.code=code; CL.started=Date.now();
   CL.tries=(CL.lastCode===code?(CL.tries||0):0)+1; CL.lastCode=code;
@@ -553,7 +571,7 @@ function classConnect(code){
     else if(!(pc && pc.remoteDescription)) msg=`❌ ② 선생님 페이지(수업 ${code})가 응답하지 않아요. 선생님 페이지가 열려 있는지, 코드가 맞는지 확인하세요.`;
     else {
       let types=new Set(); try{ (await pc.getStats()).forEach(r=>{ if(r.type==='local-candidate') types.add(r.candidateType); }); }catch(e){}
-      msg=`❌ ③ 선생님 컴퓨터와 직접 연결이 안 돼요. 학교 와이파이가 기기끼리 연결하는 것을 막고 있는 것 같아요. (진단: 서버 ✔ · 선생님 찾음 ✔ · 직접 연결 ✖ · 바깥 주소 ${types.has('srflx')?'✔':'✖'})`;
+      msg=`❌ ③ 선생님 컴퓨터와 직접 연결이 안 돼요. 학교 와이파이가 기기끼리 연결하는 것을 막고 있는 것 같아요. (진단: 서버 ✔ · 선생님 찾음 ✔ · 직접 연결 ✖ · 바깥 주소 ${types.has('srflx')?'✔':'✖'} · 중계 서버 ${TURN_ON?(types.has('relay')?'✔':'연결 안 됨'):'없음'})`;
     }
     CL.lastFail=msg; try{ CL.conn&&CL.conn.close(); }catch(e){} CL.conn=null;
     retryLater(msg+' — 잠시 후 다시 시도해요');
@@ -872,7 +890,8 @@ function peerOk(){
   if(typeof Peer==='undefined'){ return false; }
   return true;
 }
-function createRoom(){
+function createRoom(){ ICE_READY.then(createRoomNow); }
+function createRoomNow(){
   $('hostErr').innerHTML='';
   if(!peerOk()){ $('hostErr').innerHTML=netFailHTML('연결 프로그램을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'); return; }
   isHost=true; sessId=Date.now().toString(36)+Math.random().toString(36).slice(2,6); gameNo=0;
@@ -905,7 +924,8 @@ function createRoom(){
   };
   tryOpen(0);
 }
-function joinRoom(){
+function joinRoom(){ ICE_READY.then(joinRoomNow); }
+function joinRoomNow(){
   $('joinErr').innerHTML='';
   const code=$('joinCode').value.replace(/\D/g,'');
   if(code.length!==4){ $('joinErr').textContent='코드 4자리를 입력하세요.'; return; }
