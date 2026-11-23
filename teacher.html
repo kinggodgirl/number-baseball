@@ -217,6 +217,7 @@ button.tile{cursor:pointer}
   <div class="grid">
     <div class="card">
       <h2>접속한 학생 <span class="badge" id="stuCount">0명</span></h2>
+      <div id="verBox" class="err" style="display:none;margin:0 0 10px;line-height:1.5"></div>
       <div id="failBox" class="err" style="display:none;margin:0 0 10px;line-height:1.5"></div>
       <ul class="students" id="stuList"><li class="empty">아직 연결된 학생이 없어요</li></ul>
     </div>
@@ -256,6 +257,7 @@ button.tile{cursor:pointer}
 
 <script>
 const ID_PREFIX='kgg-numbaseball-v1-';
+const APP_VER=20261123.2;   // 학생 화면(index.html)과 같은 값이어야 함
 const PEER_OPTS={debug:0, config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]}};
 
 /* 중계 서버(TURN): turn-config.js에 키가 있으면 자격 증명을 받아 연결 후보에 추가 */
@@ -451,7 +453,8 @@ function onData(c,d){
       if(old && old.conn!==c){ try{ old.conn.close(); }catch(e){} }
       students.delete(c._key); c._key=key; students.set(key,s);
     }
-    s.dev=dev; s.name=String(d.name||'(이름 없음)').slice(0,10); s.status=String(d.status||'').slice(0,40);
+    s.dev=dev; s.name=String(d.name||'(이름 없음)').slice(0,10); s.status=String(d.status||'').slice(0,40); s.ver=+d.ver||0;
+    try{ c.send({t:'ver', v:APP_VER}); }catch(e){}
     if(ptCfg.on){ ptEnsure(s.name); renderPts(); }
     try{ c.send(ptMsg(s.name)); }catch(e){}
     renderStudents();
@@ -594,7 +597,11 @@ function renderStudents(){
   const on=arr.filter(s=>s.online).length;
   $('stuCount').textContent=on+'명'; $('pauseInfo').textContent=`연결된 학생 ${on}명`; $('bigCount').textContent=`지금 연결된 학생 ${on}명`;
   if(typeof quiz!=='undefined' && quiz) renderQuiz();
-  $('stuList').innerHTML = arr.length ? arr.map(s=>`<li class="${s.online?'':'off'}"><span class="dot ${s.online?'on':''}"></span><span class="nm">${esc(s.name)}</span><span class="st">${s.online?esc(s.status):'연결 끊김'}</span></li>`).join('') : '<li class="empty">아직 연결된 학생이 없어요</li>';
+  const newer=arr.filter(x=>x.online&&x.ver>APP_VER).length, older=arr.filter(x=>x.online&&x.ver&&x.ver<APP_VER || x.online&&!x.ver&&x.dev).length;
+  $('verBox').style.display=(newer||older)?'block':'none';
+  $('verBox').innerHTML = newer ? `⚠ 학생 화면이 이 교사 페이지보다 새 버전이에요. <b>이 페이지를 새로고침(Ctrl+Shift+R)</b>해 주세요. 기록과 포인트는 그대로 남아요.`
+    : older ? `⚠ 옛 버전 화면을 쓰는 학생이 ${older}명 있어요. 그 학생들에게 화면을 새로고침하게 해 주세요.` : '';
+  $('stuList').innerHTML = arr.length ? arr.map(s=>`<li class="${s.online?'':'off'}"><span class="dot ${s.online?'on':''}"></span><span class="nm">${esc(s.name)}</span><span class="st">${s.online?esc(s.status):'연결 끊김'}${s.online&&s.ver!==APP_VER?` <b style="color:#ffb4a2">· ${s.ver>APP_VER?'이 교사 페이지가 옛 버전':'학생 화면 옛 버전'}</b>`:''}</span></li>`).join('') : '<li class="empty">아직 연결된 학생이 없어요</li>';
 }
 function startOfToday(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
 function shown(){ return range==='today' ? records.filter(r=>r.time>=startOfToday()) : records; }

@@ -470,6 +470,7 @@ const LEVELS = {
 };
 const MAX_ROUNDS = 10;
 const ID_PREFIX = 'kgg-numbaseball-v1-';
+const APP_VER = 20261123.2;   // 고칠 때마다 올림: 교사 페이지와 버전이 다르면 알려 줌
 const $ = id => document.getElementById(id);
 let selLevel = {host:'easy', off:'easy', cpu:'easy'};
 
@@ -550,7 +551,7 @@ function classJoinClick(){
   if(code.length!==4){ setClassState('수업 코드 4자리를 입력하세요.'); return; }
   if(!$('myName').value.trim()){ setClassState('먼저 이름을 입력하세요.'); $('myName').focus(); return; }
   try{ localStorage.setItem('nb-name',$('myName').value.trim()); localStorage.setItem('nb-class',code);}catch(e){}
-  if(CL.code===code && (CL.connected || Date.now()-(CL.started||0)<8000)){ classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); return; } // 이미 연결(중)이면 이름만 갱신
+  if(CL.code===code && (CL.connected || Date.now()-(CL.started||0)<8000)){ classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status, ver:APP_VER}); return; } // 이미 연결(중)이면 이름만 갱신
   classConnect(code);
 }
 function classDisconnect(){ CL.connected=false; clearTimeout(CL.retry); clearInterval(CL.hb); clearInterval(CL.watch); try{CL.conn&&CL.conn.close();}catch(e){} try{CL.peer&&CL.peer.destroy();}catch(e){} CL.peer=null; CL.conn=null; }
@@ -588,7 +589,7 @@ function classConnectNow(code){
   p.on('open',()=>{
     D.server=true; setClassState('② 선생님 페이지를 찾는 중…'+tryTxt);
     const c=p.connect(ID_PREFIX+'class-'+code,{reliable:true}); CL.conn=c;
-    c.on('open',()=>{ CL.connected=true; CL.tries=0; clearInterval(CL.watch); CL.lastPong=Date.now(); setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}); updateGate();
+    c.on('open',()=>{ CL.connected=true; CL.tries=0; clearInterval(CL.watch); CL.lastPong=Date.now(); setClassState(`✔ 수업 ${code}에 연결됨 (${myName()})`, true); classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status, ver:APP_VER}); updateGate();
       // 생존 신호: 4초마다 보내고, 12초 넘게 답이 없으면 끊긴 것으로 보고 다시 연결
       clearInterval(CL.hb); CL.hb=setInterval(()=>{
         if(CL.conn!==c){ clearInterval(CL.hb); return; }
@@ -599,6 +600,7 @@ function classConnectNow(code){
     c.on('data',d=>{ if(!d) return; CL.lastPong=Date.now(); if(d.t==='pause') setPause(!!d.on, d.msg); if(d.t==='offline') setOfflineAllowed(!!d.on);
       if(d.t==='count') setShowCount(!!d.on);
       if(d.t==='points') setPoints(d);
+      if(d.t==='ver') checkVer(d.v);
       if(d.t==='home') teacherSendHome();
       if(d.t==='quiz'||d.t==='quizReveal'||d.t==='quizClose') onQuiz(d); });
     c.on('close',()=>{ if(CL.conn!==c) return; setPause(false); CL.connected=false; updateGate(); retryLater('선생님 페이지와 연결이 끊겼어요. 다시 연결하는 중…'); });
@@ -632,7 +634,7 @@ function setOfflineAllowed(on){
   updateGate();
 }
 function setPause(on,msg){ CL.paused=on; $('pauseOv').classList.toggle('on',on); if(msg) $('pauseMsg').textContent=msg; }
-$('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status}));
+$('myName').addEventListener('change',()=>classSend({t:'hi', name:myName(), dev:deviceId, status:CL.status, ver:APP_VER}));
 (function initClass(){
   if(DEMO) return;   // 시연 모드는 수업 연결 없이 동작
   let code=null;
@@ -775,7 +777,9 @@ function setPoints(d){
   const was=PT.bal;
   PT.on=!!d.on; PT.bal = d.bal==null ? null : Math.max(0, d.bal|0); PT.max=Math.max(0, d.max|0);
   PT.lastOpp = d.lastOpp==null ? null : String(d.lastOpp).slice(0,10); PT.streak=Math.max(0,d.streak|0); PT.limit=Math.max(1,(d.limit|0)||3);
+  PT.refillOK = d.refill!=null;   // 옛 교사 페이지는 문제 보상을 모름 → 버튼을 켜지 않음
   if(d.refill!=null) PT.refill=Math.max(0,d.refill|0); if(d.reward!=null) PT.reward=Math.max(0,d.reward|0);
+  clearTimeout(PT.earnTimer);
   if(MP && MP.waiting){ MP.waiting=false; renderMath(); }
   renderPoints();
   if(G && !G.myReady) renderBet();
@@ -785,13 +789,19 @@ function renderPoints(){
   const on=ptActive();
   $('ptHome').style.display=on?'inline-flex':'none'; $('ptHome').innerHTML=`🪙 내 포인트 <b>${PT.bal}</b>`;
   $('ptGame').style.display=on?'':'none'; $('ptGame').textContent=`🪙 ${PT.bal}`;
-  const can = on && PT.reward>0 && PT.bal<=PT.refill;
+  const can = on && PT.refillOK && PT.reward>0 && PT.bal<=PT.refill;
   $('refillBtn').style.display=can?'block':'none';
   $('refillBtn').textContent=`📐 포인트가 부족한가요? 수학 문제 풀고 +${PT.reward} 받기`;
 }
+/* ===== 버전 확인: 교사 페이지와 학생 화면의 버전이 다르면 알려 줌 ===== */
+function checkVer(v){
+  v=+v||0; if(!v || v===APP_VER) return;
+  const msg = v>APP_VER ? '⚠ 새 버전이 있어요. 이 화면을 새로고침해 주세요.' : '⚠ 선생님 페이지가 옛 버전이에요. 선생님께 교사 페이지 새로고침을 부탁하세요.';
+  setClassState(msg); toast(msg, 5000);
+}
 /* ===== 포인트 충전 문제 (포인트가 기준 이하일 때만) ===== */
 let MP=null;   // {p: 문제, state:'ask'|'right'|'wrong', my}
-function refillAllowed(){ return ptActive() && PT.reward>0 && PT.bal<=PT.refill && CL.connected; }
+function refillAllowed(){ return ptActive() && PT.refillOK && PT.reward>0 && PT.bal<=PT.refill && CL.connected; }
 function openRefill(){
   if(!refillAllowed()){ toast(`포인트가 ${PT.refill} 이하일 때만 받을 수 있어요`); return; }
   if(typeof NB_makeProblem!=='function'){ toast('문제를 불러오지 못했어요'); return; }
@@ -811,7 +821,7 @@ function renderMath(){
     const ok=MP.state==='right', more=refillAllowed();
     c.innerHTML=`${head}<div class="math-fig">${p.svg}</div><div class="math-q">${p.q}</div>
       <div class="center"><div class="result-title" style="font-size:40px">${ok?'정답! 🎉':'아쉬워요'}</div>
-      <p>${ok?`🪙 +${PT.reward} 포인트${MP.waiting?' <span class="muted">(정산 중…)</span>':` · 내 포인트 <b>${PT.bal}</b>`}`:`내 답 <b>${esc(MP.my)}</b> · 정답 <b style="color:var(--yellow)">${p.ans}</b>`}</p></div>
+      <p>${ok?(MP.lost?'⚠ 포인트가 반영되지 않았어요. 선생님께 <b>교사 페이지 새로고침</b>을 부탁하세요.':`🪙 +${PT.reward} 포인트${MP.waiting?' <span class="muted">(정산 중…)</span>':` · 내 포인트 <b>${PT.bal}</b>`}`):`내 답 <b>${esc(MP.my)}</b> · 정답 <b style="color:var(--yellow)">${p.ans}</b>`}</p></div>
       <div class="math-ex">💡 ${p.explain}</div>
       ${more?'<button class="btn-y btn-full" onclick="openRefill()">다른 문제 풀기</button>':`<p class="muted center" style="margin-top:10px">${ok?`포인트가 ${PT.refill}보다 많아졌어요. 이제 대결하러 가요!`:''}</p>`}
       <button class="btn-ghost btn-full" onclick="closeMath()">닫기</button>`;
@@ -820,7 +830,9 @@ function renderMath(){
 function submitMath(){
   const v=$('mathIn').value.trim(); if(!v){ toast('답을 입력하세요'); return; }
   MP.my=v;
-  if(+v===MP.p.ans){ MP.state='right'; MP.waiting=true; classSend({t:'earn', type:MP.p.type}); }
+  if(+v===MP.p.ans){ MP.state='right'; MP.waiting=true; classSend({t:'earn', type:MP.p.type});
+    // 6초 안에 교사 페이지가 포인트를 보내 주지 않으면 알려 줌
+    clearTimeout(PT.earnTimer); PT.earnTimer=setTimeout(()=>{ if(MP&&MP.waiting){ MP.waiting=false; MP.lost=true; renderMath(); } },6000); }
   else MP.state='wrong';
   renderMath();
 }
